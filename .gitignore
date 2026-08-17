@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.sage/
+
+# Keep generated source as submission evidence, but not installed dependencies/build output.
+generated-app/node_modules/
+generated-app/dist/
+fixtures/test-app/node_modules/
+fixtures/test-app/dist/
+node_modules/
+dist/

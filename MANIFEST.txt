@@ -1,0 +1,14 @@
+.env.example	356 bytes
+.gitignore	246 bytes
+README.md	2680 bytes
+SPEC.md	19703 bytes
+START_HERE.md	1765 bytes
+docs/extras.md	13018 bytes
+docs/project.pdf	219591 bytes
+generated-app/.gitkeep	0 bytes
+prompts/milestone-1.md	2511 bytes
+prompts/milestone-template.md	1364 bytes
+sage/.gitkeep	0 bytes
+specs/car-inventory.md	3306 bytes
+specs/examples/book-inventory.md	1375 bytes
+specs/examples/product-search.md	1276 bytes
