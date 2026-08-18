@@ -11,7 +11,7 @@ Replay it with no network and no API key:
 
     python -m sage specs/examples/product-search.md \
       --target-dir fixtures/test-app \
-      --llm replay --run-id product-search
+      --llm replay --run-id fixtures/cassettes/product-search
 
 Replay serves responses by sequence and tag, so the prompts are informational -
 they are the evidence of exactly what context each node received. They are

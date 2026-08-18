@@ -2,51 +2,71 @@
 
 **Specification Agent for Generation and Execution**
 
-SAGE is a small agentic spec-to-code workflow that takes a natural-language software specification, inspects an existing application repository, plans the work, generates or edits code, validates the result, and attempts bounded repairs when validation fails.
+SAGE is a small agentic spec-to-code workflow that takes a natural-language software specification, inspects an existing application repository, plans the work, generates or edits code, validates the result with the project's own tooling, and attempts bounded repairs when validation fails.
 
 The original take-home assessment is preserved at [`docs/project.pdf`](docs/project.pdf). It is the canonical source of truth for assessment requirements. [`SPEC.md`](SPEC.md) translates those requirements into an actionable implementation specification for SAGE.
 
+**Status: Milestone 1 complete.** The full `plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
+
 ## How to Run
 
-This starter pack contains specifications and documentation only. The first implementation milestone is intentionally left for the coding agent.
+### Setup
 
-Recommended start:
+SAGE needs Python 3.12+. This project uses [uv](https://docs.astral.sh/uv/):
 
 ```bash
-# 1. Copy this starter pack into the provided boilerplate repository.
-
-# 2. Configure environment variables when the agent implementation exists.
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv && uv pip install -e ".[dev]"
 cp .env.example .env
-
-# 3. Give your coding agent the main specification and Milestone 1 prompt.
-#    Files to provide:
-#    - SPEC.md
-#    - prompts/milestone-1.md
-#    - docs/project.pdf
-
-# 4. After Milestone 1 exists, run SAGE against the small evaluation spec first.
-# Example target CLI, to be implemented:
-python -m sage specs/examples/product-search.md
-
-# 5. Then run the official evaluation spec.
-python -m sage specs/car-inventory.md
 ```
 
-The exact CLI may change during implementation. Any deviation should be reflected here once it becomes real behavior.
+### Run against a specification
+
+```bash
+python -m sage specs/examples/product-search.md --target-dir fixtures/test-app
+```
+
+SAGE writes only inside `--target-dir`. That directory must already be a project it can inspect; SAGE does not scaffold one.
+
+### Model providers
+
+SAGE has three interchangeable providers, selected with `--llm` or `SAGE_LLM_MODE`. All three share one on-disk transcript format under `.sage/runs/<run-id>/`, so a run recorded in any mode can be replayed in another.
+
+| Mode | What it does | Needs a key |
+|---|---|---|
+| `api` | Calls an OpenAI-compatible endpoint (OpenAI, OpenRouter, Gemini's compatible endpoint). Records every call. | yes |
+| `manual` | Writes each prompt to disk and waits while you paste the reply into any model session and save it back. | no |
+| `replay` | Re-runs a recorded transcript, deterministically and for free. | no |
+
+Replay the recorded Milestone 1 run with no network and no API key:
+
+```bash
+python -m sage specs/examples/product-search.md --target-dir fixtures/test-app --llm replay --run-id fixtures/cassettes/product-search
+```
+
+### Checks
+
+```bash
+.venv/bin/python -m pytest && .venv/bin/ruff check sage tests
+```
 
 ## Stack
 
-| Layer | Initial choice | Rationale |
+| Layer | Choice | Rationale |
 |---|---|---|
-| Agent language | Python | Fast iteration and strong agent tooling ecosystem |
-| Workflow orchestration | LangGraph | Explicit shared state, conditional routing, and bounded repair cycles |
-| LLM integration | LangChain | Provider abstraction and structured model/tool integration |
-| Structured outputs | Pydantic | Validate planner and workflow-control outputs before execution |
-| LLM provider | OpenAI-compatible, configured by environment | Keep model choice configurable instead of hardcoding application logic to a model |
-| Observability | LangSmith, optional | Trace nodes, latency, token usage, failures, and retries during development |
-| Generated app stack | Existing assessment boilerplate | React 19, TypeScript, Vite, Apollo Client, MUI, MSW, Vitest, Testing Library |
-| Deterministic validation | Existing npm scripts | Compiler and tests provide stronger workflow gates than LLM-only review |
+| Agent language | Python 3.12 | Fast iteration and strong agent tooling ecosystem |
+| Workflow orchestration | LangGraph | Explicit shared state, conditional routing, and a bounded repair cycle |
+| LLM integration | langchain-openai | One client covers every OpenAI-compatible provider via `base_url` |
+| Structured outputs | Pydantic | Planner and change output are validated before they drive execution |
+| LLM provider | OpenAI-compatible, configured by environment | Model choice stays configuration, not code |
+| Deterministic validation | The target project's own npm scripts | The compiler and test suite are stronger gates than an LLM review |
+| Agent checks | pytest, ruff | 78 tests covering tool boundaries, bounded repair, and generalization |
+
+## Current limitations
+
+- **The official assessment boilerplate is not present.** `docs/project.pdf` lists it as "provided separately" and it was not supplied with this workspace. SAGE has therefore been built to discover a target project's scripts, libraries and layout at runtime rather than assume that stack. `fixtures/test-app/` is a clearly-labelled throwaway harness used to exercise the loop; it is **not** the boilerplate and **not** the submission's `generated-app/`, which remains empty by design.
+- Milestones 2–7 are not implemented.
 
 ## Extras
 
-Architecture, references, tradeoffs, evaluation strategy, optimization notes, security boundaries, boilerplate changes, measured cost, and retrospective notes live in [`docs/extras.md`](docs/extras.md).
+Architecture, agent workflow, references, tradeoffs, evaluation results, optimization notes, security boundaries, git conventions, and measured costs live in [`docs/extras.md`](docs/extras.md).

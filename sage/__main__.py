@@ -43,10 +43,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--run-id",
         default=None,
-        help="transcript directory name; required to replay a recorded run",
+        help=(
+            "transcript to read or write: a name under .sage/runs/, or a path to "
+            "an existing transcript directory. Required to replay a recorded run."
+        ),
     )
     parser.add_argument("--quiet", action="store_true", help="suppress progress output")
     return parser
+
+
+def _resolve_run_dir(run_id: str | None) -> Path:
+    """A run id names a directory under .sage/runs/, or is a path to one.
+
+    Accepting a path is what lets a committed cassette be replayed in place
+    without copying it into the working run directory first.
+    """
+    if not run_id:
+        return RUNS_ROOT / new_run_id()
+    candidate = Path(run_id)
+    if candidate.is_dir():
+        return candidate
+    return RUNS_ROOT / run_id
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -63,8 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     mode = args.llm or settings.llm_mode
-    run_id = args.run_id or new_run_id()
-    run_dir = RUNS_ROOT / run_id
+    run_dir = _resolve_run_dir(args.run_id)
 
     if mode == "replay" and not run_dir.is_dir():
         print(f"no recorded run to replay at {run_dir}", file=sys.stderr)

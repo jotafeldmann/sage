@@ -76,6 +76,57 @@ Relevant idea:
 
 SAGE does not need to adopt OpenSpec itself for this take-home. It borrows the discipline of treating specifications and intermediate artifacts as durable project context.
 
+## External Dependencies and Known Limitations
+
+### The official boilerplate is not available
+
+`docs/project.pdf` lists the boilerplate under **"Repository: Provided
+separately"**. It was not supplied with this workspace and is not present in it.
+Everything the assessment says about that repository - React 19, Vite, Apollo
+Client, MUI, MSW, Vitest, a `Car` type, a `GetCars` query, five seed cars - is
+therefore **documentation, not something SAGE has ever seen**.
+
+Decision: do not download, infer, or recreate a replacement and treat it as the
+real target. A reconstruction would look like the boilerplate without being it,
+and every difference would surface as a mystery failure during the Car Inventory
+milestone.
+
+Consequences, all deliberate:
+
+- **SAGE assumes nothing about the target stack.** It discovers npm scripts,
+  libraries and layout by reading `package.json` and the file listing at
+  runtime. `tests/test_generalization.py` asserts that the strings `apollo`,
+  `msw`, `graphql`, `mui` and the evaluation specs' vocabulary appear nowhere
+  in SAGE core.
+- **Validation commands are discovered, not assumed.** A project without a
+  `typecheck` script is not a failing project; that gate is skipped and recorded
+  as skipped.
+- **`generated-app/` is intentionally empty.** It is the submission's output
+  directory and stays empty until there is a real boilerplate to copy into it.
+- **`fixtures/test-app/` is a throwaway harness**, labelled as such in the first
+  line of its own README. It is minimal React + TypeScript + Vitest with no
+  Apollo, MSW or MUI, precisely so that SAGE cannot quietly acquire habits from
+  a stand-in.
+
+To plug the real boilerplate in later: point `--target-dir` at it. No SAGE code
+change is expected. That expectation is untested until the boilerplate exists,
+and it is the main risk carried into Milestone 5.
+
+### Other limitations after Milestone 1
+
+- **Dependency file contents do not travel forward, only summaries.** A task
+  that consumes another task's module is told what that module does, not what it
+  looks like. In the recorded run this is exactly what caused the first
+  validation failure: the test task had to guess the component's query surface
+  and guessed wrong. Repair recovered it, which is the design working - but a
+  cheaper fix would be to include dependency files' public signatures. Deferred
+  to Milestone 3 rather than guessed at now.
+- **`npm install` is never run automatically.** The target project's
+  dependencies must already be installed.
+- **One specification, one target directory, one pass.** No resume, no
+  incremental re-plan, no partial-failure recovery beyond repair.
+- **No token or cost measurement yet** - see *Average Cost Per Run*.
+
 ## Architecture
 
 Initial architecture:
@@ -126,91 +177,207 @@ Architecture principles:
 5. **Keep nodes narrow enough that failures are diagnosable.**
 6. **Do not introduce a new agent/node when a normal function is sufficient.**
 
-Architecture status: **design target, not yet implementation evidence**.
+Architecture status after Milestone 1: **implemented**, with one deviation from
+the design above - there is no Repository Analyzer *node*. Repository inspection
+is a deterministic function (`sage/tools/project.py`) called by the nodes that
+need it, because it involves no model call and no state transition. SPEC.md 4.1
+asks for a normal function rather than a node in exactly this case. An explicit
+analysis node remains Milestone 2's decision.
 
-Update this section when Milestone 1 produces real code.
+Implemented graph (`sage/graph.py`):
+
+```text
+START -> planner -> generator --+
+                       ^        | tasks remain
+                       +--------+
+                                | plan exhausted
+                                v
+                            validator
+                                |
+             succeeded ---------+--------- failed
+                 |                            |
+                 v                    budget remaining?
+                END                   yes -> repair -> validator
+                                      no  -> END
+```
+
+Two properties are deliberate:
+
+* The generator's **self-edge** makes task-by-task execution visible in the
+  graph rather than hidden inside a Python loop.
+* The **validator is the only node that can set a terminal status**, so a run
+  always ends explicitly `succeeded` or `failed` and never ambiguously.
+
+Termination is bounded three independent ways: the repair budget
+(`SAGE_MAX_REPAIR_ATTEMPTS`, default 2), a plan-length cap applied at planning
+time (`SAGE_MAX_TASKS`, default 12), and a LangGraph recursion limit derived
+from both. The task cap exists because plan length is otherwise attacker
+-controlled via the specification.
 
 ## Agent Workflow
 
-Target execution:
+Actual execution, as implemented in Milestone 1:
 
 ```text
-1. Load specification
-2. Resolve target workspace
-3. Inspect repository
-4. Build compact repository context
-5. Create dependency-aware task plan
-6. Validate plan schema
-7. Execute tasks sequentially
-8. Run deterministic validation
-9. If validation passes, finish
-10. If validation fails and retry budget remains, repair relevant files
-11. Re-run validation
-12. Stop successfully or expose unresolved failure
+1.  CLI loads the specification file as data
+2.  WorkspaceFS is opened on --target-dir; nothing outside it is reachable
+3.  probe_project() reads package.json and the file listing (no model call)
+4.  planner    -> one model call -> Plan validated by Pydantic
+5.  generator  -> one model call per task, in dependency order
+6.  validator  -> runs the project's own typecheck / test / build
+7.  pass       -> status=succeeded, exit 0
+8.  fail       -> repair (bounded), then back to 6
+9.  budget out -> status=failed, unresolved output printed, exit 1
 ```
 
-Expected run output should make state transitions visible without printing raw prompts, secrets, or excessive logs.
-
-Example:
+Observed output from the recorded Milestone 1 run:
 
 ```text
-Analyzing repository...
-Repository analyzed.
+SAGE: specs/examples/product-search.md -> .../fixtures/test-app
+  provider: manual   transcript: .sage/runs/m1-product-search
 
 Planning implementation...
-7 tasks created.
+4 tasks created.
 
-[1/7] Creating data query...
-[2/7] Creating data hook...
-[3/7] Creating UI...
-
-Running typecheck...
-FAILED: 2 errors
-
-Repairing...
-2 files updated.
+[1/4] Create the product data module ...
+      1 file(s): src/products.ts
+[2/4] Create the ProductSearch component ...
+      1 file(s): src/ProductSearch.tsx
+[3/4] Render ProductSearch from the existing App component.
+      1 file(s): src/App.tsx
+[4/4] Add tests covering initial visibility ...
+      1 file(s): src/ProductSearch.test.tsx
 
 Running typecheck...
 PASSED
-Running tests...
+Running test...
+FAILED (exit 1)
+
+Repairing (attempt 1/2)...
+1 file(s) updated.
+
+Running typecheck...
 PASSED
+Running test...
+FAILED (exit 1)
+
+Repairing (attempt 2/2)...
+1 file(s) updated.
+
+Running typecheck...
+PASSED
+Running test...
+PASSED
+Running build...
+PASSED
+
+Files changed: 4
+Repair attempts: 2
+Model calls: 7
+
+Generation complete.
 ```
+
+Nothing is reported as passing before the command that proves it has exited
+zero. The `PASSED` lines above are printed after the corresponding `npm run`
+returned 0.
+
+### Node responsibilities and the context each receives
+
+| Node | Model call | Context it is given |
+|---|---|---|
+| `planner` | 1 | Specification + the compressed project probe + the plan schema + one domain-neutral example |
+| `generator` | 1 per task | The current task only, its dependencies' **one-line summaries**, and the contents of the files that task names |
+| `validator` | 0 | Nothing. It is entirely deterministic. |
+| `repair` | 1 per attempt | The failing command, a truncated ANSI-stripped error excerpt, and only the files those errors actually name |
+
+No node receives the repository, the full message history, or another node's
+prompt.
 
 ## Optimization Techniques Applied
 
 This section should distinguish **planned techniques** from **measured techniques**.
 
-### Planned for the initial implementation
+### Implemented in Milestone 1
+
+Each technique below names the code that implements it.
 
 #### Context window control
 
-Do not attach the full repository to each model call.
+No model call receives the repository. `sage/nodes/generator.py` sends one task,
+its dependencies' summaries, and only the files that task names.
 
 #### State-to-prompt compression
 
-Convert repository exploration and prior task results into concise structured summaries before downstream calls.
+`ProjectInfo.to_prompt_summary()` reduces the repository probe to seven lines.
+Completed tasks travel forward as a one-line summary each, never as file
+contents (`sage/state.py`, `task_summaries`).
 
 #### Model/tool call budgets
 
-Bound repair attempts and any retry behavior that could otherwise loop.
+`SAGE_MAX_REPAIR_ATTEMPTS` (2), `SAGE_MAX_TASKS` (12), a derived LangGraph
+recursion limit, and `MAX_PARSE_ATTEMPTS` (2) for malformed structured output.
 
 #### Error-aware context selection
 
-Repair prompts should include the failure plus only the source files reasonably related to it.
+`extract_mentioned_files()` parses source paths out of compiler and test output
+and intersects them with files that actually exist, so repair receives only the
+implicated files - and log noise cannot cause arbitrary reads.
 
 #### Structured validation output
 
-Normalize compiler and test results before sending them back to the model. Prefer machine-readable reporters when the existing tooling supports them without excessive boilerplate modification.
+Every command is normalized into `ValidationResult`. Output is ANSI-stripped and
+truncated to `MAX_OUTPUT_EXCERPT_CHARS` (4,000), keeping the tail where
+compilers put diagnostics. ANSI stripping was added after the first recorded
+repair prompt arrived full of vitest colour codes.
 
 #### Tool gating
 
-Filesystem and shell permissions are narrower than the LLM's natural-language capabilities.
+The model never supplies a command string. It can only cause an npm script to
+run that is both allowlisted by SAGE and defined by the target project.
 
-### Measurements
+### Measurements after Milestone 1
 
-TBD after real SAGE runs.
+Measured on the recorded run against `specs/examples/product-search.md`
+(7 model calls: 1 plan, 4 generation, 2 repair).
 
-When results exist, record what actually reduced tokens, retries, runtime, or failure rate. Do not claim an optimization worked solely because it exists in code.
+Prompt sizes actually sent:
+
+| Call | Characters |
+|---|---:|
+| `001-planner` | 5,016 |
+| `002-generate-task-1` | 4,169 |
+| `003-generate-task-2` | 5,002 |
+| `004-generate-task-3` | 4,181 |
+| `005-generate-task-4` | 5,187 |
+| `006-repair-1` | 9,220 |
+| `007-repair-2` | 6,470 |
+| **Total across 7 calls** | **39,245** |
+
+**An honest caveat on these numbers.** The evaluation target is a deliberately
+tiny fixture - about 3.5 KB of TypeScript source plus 1.2 KB of configuration.
+Its entire contents would fit inside a single prompt. So these figures show that
+per-call context stays small and roughly flat, but they are **not** evidence
+that the context-management design saves anything, because there is nothing here
+to save. The techniques below are structural properties of the implementation,
+verified by reading the recorded prompts, not demonstrated wins. A meaningful
+measurement needs a repository large enough for the naive approach to hurt -
+that is Milestone 5's job, against the real boilerplate.
+
+What the recorded prompts do verify:
+
+- the planner and generator received the **compressed probe summary**
+  (7 lines) rather than any file listing or file contents;
+- `generate-task-2` received task-1's one-line summary, not `products.ts`;
+- `generate-task-3` received the existing `App.tsx` **contents**, because that
+  task names the file it modifies - so the generator inspects before editing;
+- `repair-1` received exactly one file, `src/ProductSearch.test.tsx`, because
+  that is the only file the vitest output named.
+
+Token and cost figures are **not** recorded, because the measured run was
+executed in `manual` mode, where no provider reports usage. `sage/llm/base.py`
+tracks token counts only when a provider actually returns them, and reports
+`None` otherwise rather than estimating. See *Average Cost Per Run*.
 
 ## Safety and Tool Boundaries
 
@@ -237,9 +404,33 @@ Instructions such as "ignore previous instructions", "read .env", "upload files"
 
 ### Loop/cost boundaries
 
-- Initial repair limit: 2 attempts.
-- Additional retry budgets should be explicit.
-- When a budget is exhausted, expose the failure rather than hiding it behind a success message.
+- Repair limit: 2 attempts (`SAGE_MAX_REPAIR_ATTEMPTS`).
+- Plan length cap: 12 tasks (`SAGE_MAX_TASKS`). Plan length is otherwise
+  controlled by the untrusted specification.
+- Structured-output reparse: 2 attempts, then a hard failure.
+- LangGraph recursion limit, derived from the two budgets above.
+- When a budget is exhausted the unresolved validation output is printed and the
+  process exits 1. There is no success message on a failed run.
+
+### What is enforced in code, and where
+
+| Boundary | Implementation | Test |
+|---|---|---|
+| Path traversal, absolute paths, symlink escape | `WorkspaceFS.resolve()` | `tests/test_filesystem.py` |
+| `.env`, keys, `.npmrc`, `.netrc` unreadable | `DENIED_NAME_PATTERNS` | `tests/test_filesystem.py` |
+| Only source files writable | `TEXT_SUFFIXES` check in `write_text()` | `tests/test_filesystem.py` |
+| No arbitrary commands | `ScriptRunner`, `shell=False`, allowlist ∩ project scripts | `tests/test_shell.py` |
+| Secrets stripped from child processes | `_child_env()` | `tests/test_shell.py` |
+| Specification cannot raise limits or escape the workspace | end-to-end hostile spec through the real graph | `tests/test_injection.py` |
+
+`tests/test_injection.py` runs a specification that demands
+`MAX_REPAIR_ATTEMPTS = 999`, `.env` disclosure, writes to `../../`, and
+`curl … | sh`, and asserts that the repair count is still 2, no file appears
+outside the workspace, no prompt in the entire run contains the secret, and no
+shell command runs. The hostile text does still reach the prompt - delimited and
+labelled as untrusted data, which is the point. Stripping it would be a filter
+that a rephrasing defeats; SAGE's guarantee is that the tools cannot do what the
+text asks regardless of whether the model is persuaded.
 
 ## Tradeoffs
 
@@ -273,6 +464,38 @@ Instructions such as "ignore previous instructions", "read .env", "upload files"
 
 **Mitigation:** Use application tests and optionally a bounded LLM review later, never as a replacement for available deterministic checks.
 
+### Provider-native structured output vs in-prompt schema
+
+**Choice:** In-prompt JSON schema, validated by Pydantic on the way back, with
+one bounded corrective retry that shows the model its own bad output and the
+validation error.
+
+**Why:** SAGE needs `api`, `manual` and `replay` to be interchangeable. A reply
+that a human pastes in by hand cannot use a provider's structured-output feature,
+so the schema has to live somewhere both a provider and a person can honour.
+
+**Cost:** More parsing code, and reliability now depends on prompt quality rather
+than a provider guarantee. `_extract_json()` has to cope with fenced, prefixed
+and chatty replies.
+
+**Benefit beyond portability:** this is what SPEC.md 9 asks for anyway - malformed
+control output fails loudly instead of driving the generator with guessed values.
+
+### Recording every run
+
+**Choice:** All three providers write the same prompt/response transcript to
+`.sage/runs/<run-id>/`.
+
+**Benefit:** Any run becomes a deterministic, zero-cost regression fixture. The
+Milestone 1 end-to-end test replays a real recorded run - including its two
+repair attempts - against a pristine copy of the fixture, with no network and no
+API key, in about 12 seconds. It also means the exact context every node received
+is inspectable after the fact, which is how the ANSI-noise problem was found.
+
+**Cost:** Transcripts are bulky, and a replay diverges the moment the graph takes
+a different path - `ReplayLLM` raises rather than silently substituting a
+mismatched response.
+
 ### Configurable model vs hardcoded model
 
 **Choice:** Configure model via environment.
@@ -283,23 +506,28 @@ Instructions such as "ignore previous instructions", "read .env", "upload files"
 
 ## Changes Made to Boilerplate
 
-No boilerplate changes have been made by this starter pack.
+**No changes have been made to the assessment boilerplate, because it is not
+present in this workspace.** See *External Dependencies and Known Limitations*.
 
-For every future change, record:
+`fixtures/test-app/` is not the boilerplate, so its contents are not recorded
+here as boilerplate changes. It is a throwaway harness created by this project.
+
+One decision inside the fixture is worth stating, since it would be a real
+boilerplate change if applied to the official repository:
 
 ```text
-Change:
-Why it was necessary:
-Agent/workflow benefit:
-Risk or tradeoff:
-How to revert:
+Change:              `test` script is `vitest run --passWithNoTests`
+Why it was necessary: vitest exits 1 when a project has no test files, so a
+                     project that SAGE has not yet written tests for would fail
+                     validation before SAGE had done anything wrong.
+Agent/workflow benefit: the baseline is green, so any failure the validator
+                     reports is attributable to SAGE.
+Risk or tradeoff:    a specification that asks for tests, and a run that then
+                     silently produces none, would pass this gate. The plan
+                     schema records test tasks, so this is visible in the plan,
+                     but it is not enforced by the validator.
+How to revert:       drop the flag from fixtures/test-app/package.json.
 ```
-
-Possible example, only if actually implemented later:
-
-- configure a machine-readable Vitest reporter so validation failures can be normalized with less prompt noise.
-
-Do not add a change here until it exists in the repository.
 
 ## Evaluation Strategy
 
@@ -356,98 +584,227 @@ Goal:
 
 ### Results
 
-TBD after implementation.
+#### Evaluation 1 + 2: Product Search, including repair — PASSED
+
+Evaluations 1 and 2 were satisfied by the same run: the repair path was exercised
+by a genuine failure that arose during normal generation, so no failure had to be
+injected artificially.
+
+```text
+Date:                2026-08-17
+Commit:              see `git log` for "feat: complete the Milestone 1 end-to-end run"
+Model:               none - run in `manual` mode (no API key available in this
+                     environment); responses authored through the paste bridge
+Spec:                specs/examples/product-search.md
+Target:              fixtures/test-app  (NOT the assessment boilerplate)
+Result:              SUCCEEDED, exit 0
+Plan:                4 tasks, dependency-ordered
+Validation commands: npm run typecheck, npm run test, npm run build  (all
+                     discovered from the target's package.json)
+Repair attempts:     2 of 2
+Final validation:    typecheck PASSED, test PASSED (4 tests), build PASSED
+Model calls:         7  (1 plan, 4 generate, 2 repair)
+Duration:            ~8s on replay, dominated by npm; wall time in manual mode is
+                     not meaningful since it includes human paste latency
+Transcript:          fixtures/cassettes/product-search/
+```
+
+What the repair loop actually did:
+
+1. **First failure** (1 of 3 tests passing). The test task depends on the
+   component task but receives only its one-line summary, so it guessed the
+   input's query surface and used `getByPlaceholderText` against a component that
+   uses a `<label>`. Repair received the failing command, the vitest output
+   including the rendered DOM, and exactly one file - the test - and switched to
+   `getByLabelText`.
+2. **Second failure** (2 of 3 passing). A genuine logic error in the generated
+   assertion: the test searched `"mo"` and asserted that *Mouse* disappears, but
+   `"Mouse"` really does contain `"mo"`. Repair correctly concluded the assertion
+   was wrong rather than the filter, chose a distinguishing search term, and
+   added a case-insensitive multi-match case.
+3. **Third validation**: typecheck, test and build all passed.
+
+This is worth stating plainly: **both repair attempts were consumed and the run
+recovered on the last one.** The bound is demonstrated as a real limit, not a
+theoretical one. No deliberately broken code survives in the generated output.
+
+Independently re-verified outside SAGE:
+
+```text
+cd fixtures/test-app
+npm run typecheck   ->  exit 0
+npm test            ->  4 passed (4)
+npm run build       ->  exit 0
+```
+
+Requirement traceability:
+
+| Requirement | Satisfied by |
+|---|---|
+| PRODUCT-REQ-001 seed products | `src/products.ts` — Keyboard, Monitor, Mouse |
+| PRODUCT-REQ-002 case-insensitive search | `ProductSearch.tsx` — `name.toLowerCase().includes(needle)` |
+| PRODUCT-REQ-003 empty state | `ProductSearch.tsx` — renders `No products found` |
+| PRODUCT-REQ-004 tests | `ProductSearch.test.tsx` — 4 passing tests |
+
+#### Evaluation 3: Official Car Inventory — NOT RUN
+
+Blocked on the boilerplate. Milestone 5.
+
+#### Evaluation 4: Generalization — NOT RUN as a full generation
+
+The *negative* half is enforced now: `tests/test_generalization.py` asserts that
+no evaluation-spec vocabulary and no unseen-stack name appears in SAGE core. The
+*positive* half - actually generating the book inventory - is Milestone 6.
 
 ## What Worked Well
 
-TBD after implementation and measured runs.
+Concrete observations from the one recorded run and the test suite. This is a
+single run on a small specification; none of it is a general claim.
 
-Use concrete observations such as:
+- **The deterministic validator is the most valuable component.** Both failures
+  were caught by the project's own test runner, not by any model judgement, and
+  both repair prompts were built from real compiler and test output.
+- **Narrow repair context was sufficient.** Repair received one file each time
+  and fixed the problem both times. The error-to-file mapping did not need to be
+  clever - parsing paths out of the output and intersecting with files that exist
+  was enough.
+- **Recording every run paid for itself immediately.** Reading the saved prompts
+  is how the ANSI-noise problem was found; that would have been invisible from
+  the console output alone.
+- **The graph made termination easy to reason about.** Making the validator the
+  only node that can set a terminal status removed a whole class of "which node
+  decides we are done" bugs.
+- **Testing the injection boundary end-to-end, through the real graph, rather
+  than unit-testing the sanitizer.** The guarantee that matters is that the tools
+  cannot do what the hostile text asks - which is only observable at the whole
+  -run level.
 
-- first-pass plan quality;
-- number of generation tasks completed without repair;
-- whether repository analysis prevented incorrect scaffolding;
-- whether normalized errors led to targeted repair;
-- whether context reduction lowered token usage;
-- whether bounded retries prevented runaway loops.
+### A real defect the tests caught
 
-Avoid generic retrospective statements that are not supported by a run or code review.
+LangGraph injects its own `Runtime` object into any node parameter named
+`runtime`. SAGE's dependency container was bound with
+`partial(node, runtime=deps)` and was being **silently replaced** by LangGraph's
+own object at call time. Every node failed with `AttributeError` the first time
+the graph ran for real. Renamed to `Deps`/`deps`.
+
+Worth recording because it is the argument for the end-to-end graph tests: no
+amount of unit testing the nodes in isolation would have found it.
 
 ## What I Would Improve
 
-Initial candidates, not yet conclusions:
+Now grounded in what Milestone 1 actually surfaced, rather than a wish list.
 
-- plan review gate;
-- failure classification before repair;
-- model routing by task difficulty;
-- better CLI UX;
-- stronger evaluation harness;
-- richer metrics per node;
-- optional human approval before implementation;
-- better handling of provider rate limits;
-- stronger sandboxing if the agent expands beyond the assessment environment.
+**Directly indicated by the recorded run:**
 
-Keep only improvements that remain relevant after implementation.
+1. **Pass dependency signatures, not just summaries.** The first validation
+   failure happened because the test task knew what the component *did* but not
+   what it *looked like*. Sending dependencies' exported signatures - not full
+   contents - would likely have avoided one full repair cycle. This is the single
+   highest-value change and belongs in Milestone 3.
+2. **Let the generator see sibling files it is about to integrate with.**
+   Related to the above, and the same fix.
+
+**Indicated by the implementation:**
+
+3. **Failure classification before repair.** A typecheck error, a failed
+   assertion, and a missing module deserve different repair prompts. Currently
+   all three get the same one.
+4. **Re-validate incrementally.** After a repair touching only test files, the
+   full build does not need to re-run.
+5. **Token and cost accounting.** The plumbing exists (`Usage`), but no run has
+   yet gone through a provider that reports usage.
+6. **A plan review gate.** Not yet justified - the one recorded plan was sound.
+   Worth revisiting only if a measured run produces a bad plan.
+
+**Carried forward as risk:**
+
+7. **The boilerplate assumption is untested.** "Point `--target-dir` at the real
+   repository and nothing changes" is a design intent, not a verified fact.
 
 ## Average Cost Per Run
 
-No cost value is available yet.
+**No cost or token figures are available, and none are estimated here.**
 
-Do not invent one.
+The Milestone 1 run was executed in `manual` mode because no API key was
+available in this environment. In that mode no provider reports usage, so
+`Usage.input_tokens` and `Usage.output_tokens` are `None` rather than a guess -
+`sage/llm/base.py` only accumulates counts a provider actually returned.
 
-After several representative runs, record:
+What *was* measured on that run:
 
 | Metric | Value |
 |---|---:|
-| Runs measured | TBD |
-| Average duration | TBD |
-| Average model calls | TBD |
-| Average tool calls | TBD |
-| Average input tokens | TBD |
-| Average output tokens | TBD |
-| Average repair attempts | TBD |
-| Average cost per run | TBD |
+| Runs measured | 1 |
+| Model calls | 7 |
+| Total prompt characters sent | 39,245 |
+| Largest single prompt | 9,220 chars |
+| Repair attempts | 2 |
+| Validation commands executed | 7 (3 passes over typecheck/test/build) |
+| Replay duration | ~8 s, dominated by npm |
+| Input tokens | not reported by this provider mode |
+| Output tokens | not reported by this provider mode |
+| Cost | not measured |
 
-If practical, also add a per-stage breakdown:
+Characters are not tokens, and one run on a small specification is not an
+average. These stay as-is until real `api`-mode runs exist.
 
-| Stage | Tokens | Cost | Duration |
-|---|---:|---:|---:|
-| Repository analysis | TBD | TBD | TBD |
-| Planning | TBD | TBD | TBD |
-| Generation | TBD | TBD | TBD |
-| Repair | TBD | TBD | TBD |
-| Total | TBD | TBD | TBD |
+To produce real figures: set `SAGE_API_KEY`, `SAGE_API_BASE_URL` and
+`SAGE_MODEL`, run with `--llm api`, and record `Usage` across several runs
+together with the model used.
 
-Always record the model/provider used for the measured dataset.
+## Git and Release Conventions
+
+- **Trunk:** `main`.
+- **Commits:** Conventional Commits — `feat:`, `fix:`, `docs:`, `test:`,
+  `chore:`. One commit per meaningful unit of work; the body explains *why*, and
+  records defects found along the way.
+- **Tags:** annotated `milestone-N`, applied only once that milestone's
+  validation actually passes.
+- **Remote:** `git@github.com:jotafeldmann/sage.git`.
+
+```bash
+git add -A
+git commit -m "feat: ..."
+git tag -a milestone-1 -m "Milestone 1: end-to-end vertical slice"
+git push -u origin main --follow-tags
+```
 
 ## Repository Structure
 
-Target structure:
+Actual structure after Milestone 1:
 
 ```text
 .
-├── README.md
-├── SPEC.md
-├── .env.example
+├── README.md                     evaluator-facing entry point
+├── SPEC.md                       SAGE implementation contract
+├── pyproject.toml                Python 3.12, uv, ruff, pytest
+├── .env.example                  required config keys, no secrets
 ├── docs/
-│   ├── project.pdf
-│   └── extras.md
-├── specs/
+│   ├── project.pdf               canonical assessment (preserved)
+│   └── extras.md                 this page
+├── specs/                        application specifications (SAGE inputs)
 │   ├── car-inventory.md
-│   └── examples/
-│       ├── product-search.md
-│       └── book-inventory.md
-├── prompts/
-│   ├── milestone-1.md
-│   └── milestone-template.md
-├── sage/
-│   ├── graph.py
-│   ├── state.py
-│   ├── nodes/
-│   ├── tools/
-│   ├── prompts/
-│   └── schemas/
-└── generated-app/
+│   └── examples/{product-search,book-inventory}.md
+├── prompts/                      milestone prompts for the coding agent
+├── sage/                         the agent
+│   ├── __main__.py               CLI
+│   ├── config.py                 control-plane settings and budgets
+│   ├── state.py                  the LangGraph state
+│   ├── deps.py                   per-run tools bound into the nodes
+│   ├── graph.py                  the workflow and its routing
+│   ├── nodes/{planner,generator,validator,repair}.py
+│   ├── tools/{filesystem,shell,project}.py    the security boundary
+│   ├── llm/{base,transcript,api,manual,replay,structured}.py
+│   ├── prompts/{planner,generator,repair,_shared}.md
+│   └── schemas/{plan,changes,validation}.py
+├── tests/                        78 tests
+├── fixtures/                     NOT part of the deliverable
+│   ├── test-app/                 throwaway React/TS harness
+│   └── cassettes/product-search/ the recorded Milestone 1 run
+└── generated-app/                submission output; empty until the
+                                  official boilerplate is available
 ```
 
-This is a target, not a mandate to create empty abstraction layers. Prefer fewer files until implementation needs justify more structure.
+Note the separation that matters: `sage/` contains no application-domain
+knowledge, `specs/` contains all of it, and `fixtures/` is scaffolding that
+would be deleted the day the real boilerplate arrives.
