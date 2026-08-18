@@ -6,7 +6,7 @@ SAGE is a small agentic spec-to-code workflow that takes a natural-language soft
 
 The original take-home assessment is preserved at [`docs/project.pdf`](docs/project.pdf). It is the canonical source of truth for assessment requirements. [`SPEC.md`](SPEC.md) translates those requirements into an actionable implementation specification for SAGE.
 
-**Status: Milestone 1 complete.** The full `plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
+**Status: Milestone 2 complete.** The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
 
 ## How to Run
 
@@ -38,11 +38,14 @@ SAGE has three interchangeable providers, selected with `--llm` or `SAGE_LLM_MOD
 | `manual` | Writes each prompt to disk and waits while you paste the reply into any model session and save it back. | no |
 | `replay` | Re-runs a recorded transcript, deterministically and for free. | no |
 
-Replay the recorded Milestone 1 run with no network and no API key:
+Replay a recorded run with no network and no API key:
 
 ```bash
 python -m sage specs/examples/product-search.md --target-dir fixtures/test-app --llm replay --run-id fixtures/cassettes/product-search
 ```
+
+Two runs are recorded: `product-search` (passes first time) and
+`product-search-repair` (fails validation, repairs, then passes).
 
 ### Checks
 
@@ -60,12 +63,12 @@ python -m sage specs/examples/product-search.md --target-dir fixtures/test-app -
 | Structured outputs | Pydantic | Planner and change output are validated before they drive execution |
 | LLM provider | OpenAI-compatible, configured by environment | Model choice stays configuration, not code |
 | Deterministic validation | The target project's own npm scripts | The compiler and test suite are stronger gates than an LLM review |
-| Agent checks | pytest, ruff | 78 tests covering tool boundaries, bounded repair, and generalization |
+| Agent checks | pytest, ruff | 100 tests covering tool boundaries, bounded repair, repository probing, and generalization |
 
 ## Current limitations
 
 - **The official assessment boilerplate is not present.** `docs/project.pdf` lists it as "provided separately" and it was not supplied with this workspace. SAGE has therefore been built to discover a target project's scripts, libraries and layout at runtime rather than assume that stack. `fixtures/test-app/` is a clearly-labelled throwaway harness used to exercise the loop; it is **not** the boilerplate and **not** the submission's `generated-app/`, which remains empty by design.
-- Milestones 2–7 are not implemented.
+- Milestones 3–7 are not implemented.
 
 ## Extras
 

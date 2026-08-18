@@ -177,32 +177,48 @@ Architecture principles:
 5. **Keep nodes narrow enough that failures are diagnosable.**
 6. **Do not introduce a new agent/node when a normal function is sufficient.**
 
-Architecture status after Milestone 1: **implemented**, with one deviation from
-the design above - there is no Repository Analyzer *node*. Repository inspection
-is a deterministic function (`sage/tools/project.py`) called by the nodes that
-need it, because it involves no model call and no state transition. SPEC.md 4.1
-asks for a normal function rather than a node in exactly this case. An explicit
-analysis node remains Milestone 2's decision.
+Architecture status after Milestone 2: **implemented as designed**, including
+the Repository Analyzer node.
+
+Milestone 1 deliberately shipped without that node, on the grounds that
+repository inspection made no model call and so did not need to be one. Milestone
+2 changed that judgement for a specific reason: the *interpretive* half of
+analysis - what the installed libraries mean for someone about to change this
+code, what conventions the files demonstrate, what already exists worth reusing -
+is not derivable from a static rule. That part is a model call, and a model call
+that mutates shared state is a node.
+
+The split is now explicit:
+
+| Layer | Answers | How |
+|---|---|---|
+| `tools/project.py` | *What is here?* | Static lookups over `package.json` and the file listing. No model. |
+| `nodes/analyzer.py` | *What does it mean for the change I am about to make?* | One model call over a bounded sample of the ranked-important files. |
+
+SPEC.md 6.1 asks for exactly this ordering - "prefer deterministic repository
+inspection before asking the LLM to infer structure".
 
 Implemented graph (`sage/graph.py`):
 
 ```text
-START -> planner -> generator --+
-                       ^        | tasks remain
-                       +--------+
-                                | plan exhausted
-                                v
-                            validator
-                                |
-             succeeded ---------+--------- failed
-                 |                            |
-                 v                    budget remaining?
-                END                   yes -> repair -> validator
-                                      no  -> END
+START -> analyzer -> planner -> generator --+
+                                   ^        | tasks remain
+                                   +--------+
+                                            | plan exhausted
+                                            v
+                                        validator
+                                            |
+                         succeeded ---------+--------- failed
+                             |                            |
+                             v                    budget remaining?
+                            END                   yes -> repair -> validator
+                                                  no  -> END
 ```
 
-Two properties are deliberate:
+Three properties are deliberate:
 
+* The **analyzer runs before planning**, so the planner is told what the project
+  already is rather than inferring it from a bare dependency list.
 * The generator's **self-edge** makes task-by-task execution visible in the
   graph rather than hidden inside a Python loop.
 * The **validator is the only node that can set a terminal status**, so a run
@@ -222,19 +238,23 @@ Actual execution, as implemented in Milestone 1:
 1.  CLI loads the specification file as data
 2.  WorkspaceFS is opened on --target-dir; nothing outside it is reachable
 3.  probe_project() reads package.json and the file listing (no model call)
-4.  planner    -> one model call -> Plan validated by Pydantic
-5.  generator  -> one model call per task, in dependency order
-6.  validator  -> runs the project's own typecheck / test / build
-7.  pass       -> status=succeeded, exit 0
-8.  fail       -> repair (bounded), then back to 6
-9.  budget out -> status=failed, unresolved output printed, exit 1
+4.  analyzer   -> one model call over a bounded file sample -> RepositoryContext
+5.  planner    -> one model call -> Plan validated by Pydantic
+6.  generator  -> one model call per task, in dependency order
+7.  validator  -> runs the project's own typecheck / test / build
+8.  pass       -> status=succeeded, exit 0
+9.  fail       -> repair (bounded), then back to 7
+10. budget out -> status=failed, unresolved output printed, exit 1
 ```
 
 Observed output from the recorded Milestone 1 run:
 
 ```text
 SAGE: specs/examples/product-search.md -> .../fixtures/test-app
-  provider: manual   transcript: .sage/runs/m1-product-search
+  provider: manual   transcript: .sage/runs/m2-product-search
+
+Analyzing repository...
+Repository analyzed: React / TypeScript, Vitest tests, 4 scripts.
 
 Planning implementation...
 4 tasks created.
@@ -286,10 +306,17 @@ returned 0.
 
 | Node | Model call | Context it is given |
 |---|---|---|
-| `planner` | 1 | Specification + the compressed project probe + the plan schema + one domain-neutral example |
-| `generator` | 1 per task | The current task only, its dependencies' **one-line summaries**, and the contents of the files that task names |
+| `analyzer` | 1 | The deterministic probe summary + the contents of at most 6 ranked-important files, each capped at 2,500 chars |
+| `planner` | 1 | Specification + the probe summary + the analyzer's findings + the plan schema + one domain-neutral example |
+| `generator` | 1 per task | The current task only, its dependencies' **one-line summaries**, the analyzer's **conventions list**, and the contents of the files that task names |
 | `validator` | 0 | Nothing. It is entirely deterministic. |
 | `repair` | 1 per attempt | The failing command, a truncated ANSI-stripped error excerpt, and only the files those errors actually name |
+
+Only the `conventions` list travels from analysis into generation, not the whole
+`RepositoryContext`. The rest of the analysis is aimed at planning; repeating it
+on every generation call would cost tokens per task for context the planner has
+already acted on. The conventions earn their place because the first task in a
+plan creates a *new* file and therefore has no existing sibling to imitate.
 
 No node receives the repository, the full message history, or another node's
 prompt.
@@ -336,45 +363,58 @@ repair prompt arrived full of vitest colour codes.
 The model never supplies a command string. It can only cause an npm script to
 run that is both allowlisted by SAGE and defined by the target project.
 
-### Measurements after Milestone 1
+### Measurements
 
-Measured on the recorded run against `specs/examples/product-search.md`
-(7 model calls: 1 plan, 4 generation, 2 repair).
+Measured from the committed cassettes. Prompt sizes are exact; nothing here is
+estimated.
 
-Prompt sizes actually sent:
+**Milestone 2, clean run** (`fixtures/cassettes/product-search/`) — 6 calls:
 
 | Call | Characters |
 |---|---:|
-| `001-planner` | 5,016 |
-| `002-generate-task-1` | 4,169 |
-| `003-generate-task-2` | 5,002 |
-| `004-generate-task-3` | 4,181 |
-| `005-generate-task-4` | 5,187 |
-| `006-repair-1` | 9,220 |
-| `007-repair-2` | 6,470 |
-| **Total across 7 calls** | **39,245** |
+| `001-analyze-repository` | 5,779 |
+| `002-planner` | 7,208 |
+| `003-generate-task-1` | 4,850 |
+| `004-generate-task-2` | 5,635 |
+| `005-generate-task-3` | 4,875 |
+| `006-generate-task-4` | 4,822 |
+| **Total** | **33,169** |
 
-**An honest caveat on these numbers.** The evaluation target is a deliberately
-tiny fixture - about 3.5 KB of TypeScript source plus 1.2 KB of configuration.
-Its entire contents would fit inside a single prompt. So these figures show that
+**Milestone 1, for comparison** — 7 calls, total 39,245 chars, largest 9,220.
+
+Two real observations from that comparison, and one non-observation:
+
+1. **The planner prompt grew by ~2.2 KB** (5,016 → 7,208) — that is the analysis
+   being carried into it. This is the direct, intended cost of Milestone 2.
+2. **Per-generation prompts grew by ~0.7 KB each**, which is the conventions
+   list. Bounded and flat, since it does not accumulate per task.
+3. **Total fell** (39,245 → 33,169) only because this run needed no repair
+   attempts. As explained under *Evaluation Results*, that is not attributable
+   to the analyzer — both transcripts were hand-authored by the same author.
+   The repair cassette is the fairer shape comparison: 7 calls like Milestone 1,
+   and 44,489 characters against Milestone 1's 39,245. Repository analysis
+   makes a run *more* expensive per attempt. It has to pay for itself by
+   avoiding repairs, and that has not been measured.
+
+**The standing caveat on all of these numbers.** The evaluation target is a
+deliberately tiny fixture — about 3.5 KB of TypeScript plus 1.2 KB of config.
+Its entire contents would fit in a single prompt. These figures show that
 per-call context stays small and roughly flat, but they are **not** evidence
 that the context-management design saves anything, because there is nothing here
-to save. The techniques below are structural properties of the implementation,
-verified by reading the recorded prompts, not demonstrated wins. A meaningful
-measurement needs a repository large enough for the naive approach to hurt -
-that is Milestone 5's job, against the real boilerplate.
+to save. A meaningful measurement needs a repository large enough for the naive
+approach to hurt. That is Milestone 5's job, against the real boilerplate.
 
-What the recorded prompts do verify:
+What the recorded prompts do verify by inspection:
 
-- the planner and generator received the **compressed probe summary**
-  (7 lines) rather than any file listing or file contents;
+- the analyzer received 4 files, not the repository, each fence-capped;
+- the planner received the probe summary plus the analysis, not any file;
 - `generate-task-2` received task-1's one-line summary, not `products.ts`;
 - `generate-task-3` received the existing `App.tsx` **contents**, because that
-  task names the file it modifies - so the generator inspects before editing;
-- `repair-1` received exactly one file, `src/ProductSearch.test.tsx`, because
-  that is the only file the vitest output named.
+  task names the file it modifies — so the generator inspects before editing;
+- `repair-1` (in the repair cassette) received exactly one file, because that is
+  the only file the vitest output named.
 
-Token and cost figures are **not** recorded, because the measured run was
+Token and cost figures are **not** recorded, because both measured runs were
 executed in `manual` mode, where no provider reports usage. `sage/llm/base.py`
 tracks token counts only when a provider actually returns them, and reports
 `None` otherwise rather than estimating. See *Average Cost Per Run*.
@@ -422,6 +462,8 @@ Instructions such as "ignore previous instructions", "read .env", "upload files"
 | No arbitrary commands | `ScriptRunner`, `shell=False`, allowlist ∩ project scripts | `tests/test_shell.py` |
 | Secrets stripped from child processes | `_child_env()` | `tests/test_shell.py` |
 | Specification cannot raise limits or escape the workspace | end-to-end hostile spec through the real graph | `tests/test_injection.py` |
+| Analysis cannot read secrets or inflate the prompt | bounded file sample from the probe's ranked list, `.env` denied by `WorkspaceFS` | `tests/test_analyzer.py` |
+| Operator cancellation is never swallowed | `LLMAborted` re-raised past graceful degradation | `tests/test_analyzer.py` |
 
 `tests/test_injection.py` runs a specification that demands
 `MAX_REPAIR_ATTEMPTS = 999`, `.env` disclosure, writes to `../../`, and
@@ -646,6 +688,48 @@ Requirement traceability:
 | PRODUCT-REQ-003 empty state | `ProductSearch.tsx` — renders `No products found` |
 | PRODUCT-REQ-004 tests | `ProductSearch.test.tsx` — 4 passing tests |
 
+#### Milestone 2 re-run: repository-aware planning — PASSED
+
+The same specification, re-run after the analyzer was added. Both cassettes are
+committed and both are exercised by `tests/test_end_to_end.py`.
+
+```text
+Date:                2026-08-17
+Spec:                specs/examples/product-search.md
+Target:              fixtures/test-app  (NOT the assessment boilerplate)
+Provider:            manual (no API key available), replayable via `--llm replay`
+
+fixtures/cassettes/product-search/         6 model calls, 0 repairs, PASSED
+fixtures/cassettes/product-search-repair/  7 model calls, 1 repair,  PASSED
+
+Final validation, both: typecheck PASSED, test PASSED (4 tests), build PASSED
+```
+
+What the analyzer actually produced, and what changed downstream:
+
+- It identified the project as Vite-bundled React 19 in TypeScript **with no
+  router, state library or data layer**, and concluded that any data a feature
+  needs must be local. The plan reflects that: `src/products.ts` is a local
+  module, and no task proposes an API client.
+- It read `vitest.setup.ts` and `vite.config.ts` and reported that jest-dom
+  matchers are preloaded and Vitest globals are enabled. The plan's test task
+  says to use the configured globals rather than proposing to set up a runner
+  that already exists.
+- It reported the flat `src/` layout with no `components/` directory. The plan
+  places new files flat in `src/` and **modifies** `src/App.tsx` rather than
+  scaffolding a parallel screen. `test_the_plan_is_repository_aware` asserts
+  both of these.
+
+**An honest caveat, which matters more than the result.** The Milestone 1 run
+needed two repair attempts; this one needed none. That is *not* evidence that
+repository analysis reduces repairs. Both transcripts were authored by hand
+through the manual paste bridge by the same author, so the second run had the
+benefit of knowing how the first one failed. A real comparison needs `--llm api`
+runs against an unseen specification, with the analyzer switched on and off.
+Until then, what is demonstrated is that the analysis *reaches* the planner and
+*visibly shapes* the plan - which is Milestone 2's actual definition of done -
+not that it improves outcomes.
+
 #### Evaluation 3: Official Car Inventory — NOT RUN
 
 Blocked on the boilerplate. Milestone 5.
@@ -679,7 +763,23 @@ single run on a small specification; none of it is a general claim.
   cannot do what the hostile text asks - which is only observable at the whole
   -run level.
 
-### A real defect the tests caught
+### Milestone 2 observations
+
+- **Separating "what is here" from "what it means" was the right cut.** The
+  deterministic probe answers factual questions cheaply and identically every
+  run; the model is only asked for the judgement a static rule cannot supply.
+  It also means a failed analysis degrades to "planning with facts only" rather
+  than aborting.
+- **Recognition tables beat assumptions.** Detecting the framework from what is
+  installed, and reporting `unknown` when nothing matches, kept the
+  generalization test passing unchanged while still satisfying SPEC.md 6.1's
+  "identify framework" requirement. Enumerating a specific boilerplate's data
+  and mocking libraries would have failed that test — correctly.
+- **The prompt files were again the debugging surface.** Reading
+  `002-planner.prompt.md` is how the analysis was confirmed to actually reach
+  the planner, rather than trusting that the wiring was right.
+
+### Real defects the tests and recordings caught
 
 LangGraph injects its own `Runtime` object into any node parameter named
 `runtime`. SAGE's dependency container was bound with
@@ -690,17 +790,29 @@ the graph ran for real. Renamed to `Deps`/`deps`.
 Worth recording because it is the argument for the end-to-end graph tests: no
 amount of unit testing the nodes in isolation would have found it.
 
+**Milestone 2: graceful degradation swallowed operator cancellation.** The
+analyzer catches `LLMError` so a failed analysis does not abort the run. But
+`ManualLLM` raised that same type when the operator pressed Ctrl-C, so cancelling
+a run silently continued into planning with no analysis. Found while recording,
+not by a test — pressing Enter at the analyzer prompt produced a planner prompt.
+Fixed by adding `LLMAborted`, a subclass so every existing handler still catches
+it, re-raised past the degradation path. Now covered by a test.
+
+The general lesson: a broad `except` that implements a fallback needs to say
+which failures it is a fallback *for*.
+
 ## What I Would Improve
 
 Now grounded in what Milestone 1 actually surfaced, rather than a wish list.
 
-**Directly indicated by the recorded run:**
+**Still the highest-value change, and now the clearest one:**
 
-1. **Pass dependency signatures, not just summaries.** The first validation
+1. **Pass dependency signatures, not just summaries.** Milestone 1's first
    failure happened because the test task knew what the component *did* but not
-   what it *looked like*. Sending dependencies' exported signatures - not full
-   contents - would likely have avoided one full repair cycle. This is the single
-   highest-value change and belongs in Milestone 3.
+   what it *looked like*. Milestone 2 narrowed the gap - the generator now gets
+   the conventions list - but did not close it: a task still cannot see the
+   exported signatures of the module it depends on. The repair cassette
+   reproduces exactly this failure, which makes it the obvious Milestone 3 work.
 2. **Let the generator see sibling files it is about to integrate with.**
    Related to the above, and the same fix.
 
@@ -713,8 +825,16 @@ Now grounded in what Milestone 1 actually surfaced, rather than a wish list.
    full build does not need to re-run.
 5. **Token and cost accounting.** The plumbing exists (`Usage`), but no run has
    yet gone through a provider that reports usage.
-6. **A plan review gate.** Not yet justified - the one recorded plan was sound.
+6. **A plan review gate.** Not yet justified - both recorded plans were sound.
    Worth revisiting only if a measured run produces a bad plan.
+7. **Cache the analysis per target directory.** Every run re-analyzes a project
+   that has not changed. A digest of the probe output would make the analyzer
+   call skippable across runs. Not done, because with one small fixture it would
+   optimise something that has never been observed to hurt.
+8. **Measure whether analysis actually helps.** The honest gap called out under
+   *Evaluation Results*: run the same unseen spec with the analyzer on and off,
+   via `--llm api`, and compare repair counts. Until then Milestone 2 is
+   justified by design reasoning, not evidence.
 
 **Carried forward as risk:**
 
@@ -732,21 +852,20 @@ available in this environment. In that mode no provider reports usage, so
 
 What *was* measured on that run:
 
-| Metric | Value |
-|---|---:|
-| Runs measured | 1 |
-| Model calls | 7 |
-| Total prompt characters sent | 39,245 |
-| Largest single prompt | 9,220 chars |
-| Repair attempts | 2 |
-| Validation commands executed | 7 (3 passes over typecheck/test/build) |
-| Replay duration | ~8 s, dominated by npm |
-| Input tokens | not reported by this provider mode |
-| Output tokens | not reported by this provider mode |
-| Cost | not measured |
+| Metric | M1 run | M2 clean | M2 with repair |
+|---|---:|---:|---:|
+| Model calls | 7 | 6 | 7 |
+| Total prompt characters | 39,245 | 33,169 | 44,489 |
+| Largest single prompt | 9,220 | 7,208 | 9,310 |
+| Repair attempts | 2 | 0 | 1 |
+| Final validation | passed | passed | passed |
+| Input tokens | not reported | not reported | not reported |
+| Output tokens | not reported | not reported | not reported |
+| Cost | not measured | not measured | not measured |
 
-Characters are not tokens, and one run on a small specification is not an
-average. These stay as-is until real `api`-mode runs exist.
+Characters are not tokens, and three hand-authored runs on one small
+specification are not an average. These stay as-is until real `api`-mode runs
+exist.
 
 To produce real figures: set `SAGE_API_KEY`, `SAGE_API_BASE_URL` and
 `SAGE_MODEL`, run with `--llm api`, and record `Usage` across several runs
@@ -792,15 +911,15 @@ Actual structure after Milestone 1:
 │   ├── state.py                  the LangGraph state
 │   ├── deps.py                   per-run tools bound into the nodes
 │   ├── graph.py                  the workflow and its routing
-│   ├── nodes/{planner,generator,validator,repair}.py
+│   ├── nodes/{analyzer,planner,generator,validator,repair}.py
 │   ├── tools/{filesystem,shell,project}.py    the security boundary
 │   ├── llm/{base,transcript,api,manual,replay,structured}.py
-│   ├── prompts/{planner,generator,repair,_shared}.md
-│   └── schemas/{plan,changes,validation}.py
-├── tests/                        78 tests
+│   ├── prompts/{analyzer,planner,generator,repair,_shared}.md
+│   └── schemas/{plan,repository,changes,validation}.py
+├── tests/                        100 tests
 ├── fixtures/                     NOT part of the deliverable
-│   ├── test-app/                 throwaway React/TS harness
-│   └── cassettes/product-search/ the recorded Milestone 1 run
+│   ├── test-app/                 throwaway React/TS harness, committed pristine
+│   └── cassettes/                two recorded runs: clean, and with repair
 └── generated-app/                submission output; empty until the
                                   official boilerplate is available
 ```
