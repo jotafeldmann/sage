@@ -6,7 +6,39 @@ SAGE is a small agentic spec-to-code workflow that takes a natural-language soft
 
 The original take-home assessment is preserved at [`docs/project.pdf`](docs/project.pdf). It is the canonical source of truth for assessment requirements. [`SPEC.md`](SPEC.md) translates those requirements into an actionable implementation specification for SAGE.
 
-**Status: Milestones 1–4 and 6 complete.** Milestone 5 is blocked on the boilerplate. The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
+---
+
+> ### ⚠️ The assessment boilerplate was not available
+>
+> `docs/project.pdf` lists the pre-built application repository — React 19 with
+> Apollo Client, MUI and MSW — under **"Repository: Provided separately"**. It
+> was not supplied with this workspace and is not in it.
+>
+> **It was deliberately not downloaded, guessed at, or reconstructed.** A
+> lookalike would differ from the real thing in ways that only surface as
+> mystery failures later, and generating into it would prove nothing about the
+> repository the agent is actually meant to work on.
+>
+> Two consequences, both visible in this repository:
+>
+> 1. **The Car Inventory application was not generated** (Milestone 5). It
+>    needs that boilerplate's `GetCars` query, `Car` type, MSW mock layer and
+>    five seed cars. Nothing on SAGE's side is missing — the input is.
+> 2. **The sample output in [`generated-app/`](generated-app/) was generated
+>    into a minimal React + TypeScript harness instead**, which is
+>    [`fixtures/test-app/`](fixtures/test-app/) and is **not** the boilerplate.
+>
+> SAGE was built so this is a swap, not a rewrite: it discovers a target
+> project's scripts, libraries and layout at runtime rather than assuming any of
+> them, so pointing `--target-dir` at the real repository is expected to need no
+> code change. [Milestone 6](docs/extras.md#milestone-6-generalization--passed)
+> is the evidence — an unrelated domain ran through byte-identical SAGE — but
+> the expectation stays **untested against the real boilerplate** until it
+> exists.
+
+---
+
+**Status: Milestones 1–4, 6 and 7 complete.** Milestone 5 is blocked on the boilerplate above. The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
 
 ## How to Run
 
@@ -112,9 +144,23 @@ asks for anyway and what makes a recorded run replayable at zero cost.
 
 ## Current limitations
 
-- **The official assessment boilerplate is not present.** `docs/project.pdf` lists it as "provided separately" and it was not supplied with this workspace. SAGE has therefore been built to discover a target project's scripts, libraries and layout at runtime rather than assume that stack. `fixtures/test-app/` is a clearly-labelled throwaway harness used to exercise the loop; it is **not** the boilerplate and **not** the submission's `generated-app/`, which remains empty by design.
-- **Milestone 5 (the official Car Inventory run) cannot be performed without the boilerplate.** It needs Apollo, MSW, the `GetCars` query, the `Car` type and five seed cars. Milestone 6 was run instead, proving the same loop handles an unseen domain with no SAGE change.
-- Milestone 7 (submission packaging) is not complete.
+- **The assessment boilerplate is absent** — see the notice at the top. This is
+  the one limitation that no further work here can remove.
+- **The Car Inventory application (Milestone 5) was not generated**, for that
+  reason. Milestone 6 was run instead: an unrelated domain through
+  byte-identical SAGE code and prompts.
+- **No LLM provider was ever called.** Every recorded run was hand-authored
+  through `manual` mode, so nothing here demonstrates model behaviour and no
+  token or cost figures are reported. See
+  [Which model was used, and why](#which-model-was-used-and-why).
+- **A task cannot see the rendered output of a component it tests**, only that
+  component's exported signatures. The
+  [`product-search-repair`](fixtures/cassettes/product-search-repair/) cassette
+  reproduces exactly this: the test guesses a query selector, validation
+  catches it, and repair fixes it. Letting validation catch it may be correct,
+  but it is a choice rather than a solved problem.
+- **`npm install` runs only when `node_modules` is missing.** SAGE does not
+  detect a stale or partial install.
 
 ## Extras
 

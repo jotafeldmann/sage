@@ -2,6 +2,13 @@
 
 This pack is intended to be dropped into the repository that contains the take-home boilerplate.
 
+> **That did not happen for this submission.** The boilerplate is listed in
+> `docs/project.pdf` as "provided separately" and was never supplied, so this
+> repository stands alone and SAGE was built to attach to a target project at
+> runtime instead. See the notice at the top of [`README.md`](README.md).
+> Sections below that assume the boilerplate is present describe the intended
+> setup, not what happened.
+
 ## Files and roles
 
 - `docs/project.pdf` - original assessment and canonical requirement source.
