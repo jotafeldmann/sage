@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "path": "src/App.tsx",
+      "contents": "import { ProductSearch } from \"./ProductSearch\";\n\nexport function App() {\n  return (\n    <main>\n      <h1>SAGE test fixture</h1>\n      <ProductSearch />\n    </main>\n  );\n}\n",
+      "rationale": "Modified the existing App rather than adding a screen, as the integration points indicate."
+    }
+  ],
+  "summary": "Rendered ProductSearch from App, preserving the existing heading."
+}

@@ -25,6 +25,7 @@ class SageState(TypedDict, total=False):
     spec_path: str
     target_dir: str  # absolute path to the workspace SAGE may write to
     project: dict  # deterministic probe output, see tools.project.ProjectInfo
+    repository_context: dict  # analyzer interpretation, see schemas.RepositoryContext
 
     # -- planning ----------------------------------------------------------
     plan: list[dict]  # validated Task dicts, in dependency order

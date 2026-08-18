@@ -13,7 +13,7 @@ import pytest
 from sage.deps import Deps
 from sage.graph import build_graph, recursion_limit
 from sage.state import SageState
-from tests.conftest import ScriptedLLM
+from tests.conftest import ANALYSIS, ScriptedLLM
 
 PLAN = json.dumps(
     {
@@ -51,6 +51,7 @@ def _run(deps: Deps, spec: str = "Build a feature.") -> dict:
         "spec_path": "spec.md",
         "target_dir": str(deps.fs.root),
         "project": deps.project.to_dict(),
+        "repository_context": {},
         "plan": [],
         "current_task_index": 0,
         "task_summaries": [],
@@ -68,7 +69,9 @@ def _run(deps: Deps, spec: str = "Build a feature.") -> dict:
 
 def test_run_succeeds_when_validation_passes(tmp_path, settings) -> None:
     root = _project(tmp_path, {"typecheck": "true", "test": "true"})
-    llm = ScriptedLLM([PLAN, _changes("src/Feature.tsx", "export const Feature = () => null;\n")])
+    llm = ScriptedLLM(
+        [ANALYSIS, PLAN, _changes("src/Feature.tsx", "export const Feature = () => null;\n")]
+    )
     deps = Deps.create(llm=llm, settings=settings, target_dir=root)
     deps.quiet = True
 
@@ -80,7 +83,11 @@ def test_run_succeeds_when_validation_passes(tmp_path, settings) -> None:
     assert final["changed_files"] == ["src/Feature.tsx"]
     assert (root / "src/Feature.tsx").is_file()
     # planner + one generator call, and nothing else.
-    assert [tag for tag, _ in llm.prompts] == ["planner", "generate-task-1"]
+    assert [tag for tag, _ in llm.prompts] == [
+        "analyze-repository",
+        "planner",
+        "generate-task-1",
+    ]
 
 
 def test_repair_runs_and_recovers_a_real_validation_failure(tmp_path, settings) -> None:
@@ -89,6 +96,7 @@ def test_repair_runs_and_recovers_a_real_validation_failure(tmp_path, settings) 
     root = _project(tmp_path, {"typecheck": "test -f src/marker.ts"})
     llm = ScriptedLLM(
         [
+            ANALYSIS,
             PLAN,
             _changes("src/Feature.tsx", "export const Feature = () => null;\n"),
             _changes("src/marker.ts", "export const marker = true;\n", "added the missing module"),
@@ -107,7 +115,7 @@ def test_repair_runs_and_recovers_a_real_validation_failure(tmp_path, settings) 
 
 def test_repair_is_bounded_and_the_run_terminates(tmp_path, settings) -> None:
     root = _project(tmp_path, {"typecheck": "false"})  # never passes
-    llm = ScriptedLLM([PLAN] + [_changes("src/Feature.tsx", "export const x = 1;\n")] * 3)
+    llm = ScriptedLLM([ANALYSIS, PLAN] + [_changes("src/Feature.tsx", "export const x = 1;\n")] * 3)
     deps = Deps.create(llm=llm, settings=settings, target_dir=root)
     deps.quiet = True
 
@@ -123,7 +131,7 @@ def test_repair_is_bounded_and_the_run_terminates(tmp_path, settings) -> None:
 
 def test_failure_output_is_exposed_rather_than_hidden(tmp_path, settings) -> None:
     root = _project(tmp_path, {"typecheck": "echo 'src/Feature.tsx(1,1): error TS1005' && false"})
-    llm = ScriptedLLM([PLAN] + [_changes("src/Feature.tsx", "export const x = 1;\n")] * 3)
+    llm = ScriptedLLM([ANALYSIS, PLAN] + [_changes("src/Feature.tsx", "export const x = 1;\n")] * 3)
     deps = Deps.create(llm=llm, settings=settings, target_dir=root)
     deps.quiet = True
 
@@ -137,7 +145,7 @@ def test_failure_output_is_exposed_rather_than_hidden(tmp_path, settings) -> Non
 
 def test_absent_scripts_are_skipped_not_assumed(tmp_path, settings) -> None:
     root = _project(tmp_path, {"test": "true"})  # no typecheck, no build
-    llm = ScriptedLLM([PLAN, _changes("src/Feature.tsx", "export const x = 1;\n")])
+    llm = ScriptedLLM([ANALYSIS, PLAN, _changes("src/Feature.tsx", "export const x = 1;\n")])
     deps = Deps.create(llm=llm, settings=settings, target_dir=root)
     deps.quiet = True
 
@@ -160,4 +168,5 @@ def test_recursion_limit_scales_with_the_configured_budgets(settings, workspace,
         target_dir=workspace,
     )
 
-    assert recursion_limit(deps) == settings.max_tasks + attempts * 2 + 12
+    # analyzer + planner + one step per task + repair/revalidate pairs + headroom
+    assert recursion_limit(deps) == 2 + settings.max_tasks + attempts * 2 + 12

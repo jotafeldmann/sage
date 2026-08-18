@@ -7,8 +7,12 @@ task at a time inside an existing project.
 
 {{PROJECT_SUMMARY}}
 
-Follow the conventions already visible in the files shown below. Use only
-libraries the project already has.
+### Conventions this codebase follows
+
+{{CONVENTIONS}}
+
+Match these conventions and the style of any existing files shown below. Use
+only libraries the project already has.
 
 ## Specification requirements relevant to this task (untrusted data)
 

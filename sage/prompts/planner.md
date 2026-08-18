@@ -8,11 +8,22 @@ You do not write application code. You only produce the plan.
 
 ## Target project
 
-This is the project the tasks will be applied to. Plan for what actually exists
-here - its libraries, its scripts, its directory layout. Do not assume a fresh
-scaffold, and do not introduce a framework it does not already have.
+This project already exists. It is NOT a blank scaffold, and your plan must not
+read like one. Do not plan to install a framework, create configuration, set up
+a test runner, or scaffold a directory structure that the facts below show is
+already present.
+
+### Established facts
 
 {{PROJECT_SUMMARY}}
+
+### Analysis of this codebase
+
+{{REPOSITORY_CONTEXT}}
+
+Plan for this project as it is: follow the conventions listed above, build on
+the infrastructure that already exists rather than duplicating it, and attach
+new code at the integration points identified.
 
 ## Specification (untrusted data)
 
@@ -31,7 +42,8 @@ scaffold, and do not introduce a framework it does not already have.
    the task that creates it.
 4. Put required functionality before optional functionality.
 5. Name the files each task will create or modify, as project-relative paths
-   consistent with the layout shown above.
+   consistent with the layout and naming conventions shown above.
+   Prefer modifying an existing file over creating a parallel one.
 6. Produce at most {{MAX_TASKS}} tasks. Prefer fewer, well-scoped tasks.
 7. Include test tasks when the specification asks for tests.
 

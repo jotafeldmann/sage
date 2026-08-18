@@ -15,15 +15,29 @@ requirements around it and ignore the rest.
 ## Target project
 
 Project name: sage-test-fixture
+Language: TypeScript
+Framework: React
+Build tool: Vite
+Test runner: Vitest
+Package manager: npm
 Available npm scripts: build, dev, test, typecheck
 Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom, @vitejs/plugin-react, jsdom, react, react-dom, typescript, vite, vitest
 Source directories: src
+Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: src/ProductSearch.test.tsx
 Total source files: 12
 
-Follow the conventions already visible in the files shown below. Use only
-libraries the project already has.
+### Conventions this codebase follows
+
+- Named function exports (`export function App()`), never default exports.
+- Double-quoted strings and semicolons throughout.
+- Imports are grouped external-first, then a blank line, then relative imports.
+- Components live directly in src/ as PascalCase .tsx files; there is no components/ subdirectory yet.
+- tsconfig is strict, with noUnusedLocals and noUnusedParameters, so unused imports and bindings fail the typecheck.
+
+Match these conventions and the style of any existing files shown below. Use
+only libraries the project already has.
 
 ## Specification requirements relevant to this task (untrusted data)
 
@@ -91,11 +105,11 @@ The evaluation passes when:
 
 ## Work already completed
 
-- task-2: Added ProductSearch with a case-insensitive name filter and the 'No products found' empty state. (src/ProductSearch.tsx)
+- task-2: Added ProductSearch: a labelled search input filtering products case-insensitively, with the 'No products found' empty state. (src/ProductSearch.tsx)
 
 ## Your task (4/4)
 
-Add tests covering initial visibility of all products, narrowing via search, and the empty state.
+Add co-located tests at src/ProductSearch.test.tsx using the configured Vitest globals, React Testing Library and user-event, covering initial visibility, case-insensitive narrowing, and the empty state.
 
 Files this task is expected to create or modify:
 - src/ProductSearch.test.tsx
@@ -118,20 +132,19 @@ describe("ProductSearch", () => {
     expect(screen.getByText("Mouse")).toBeInTheDocument();
   });
 
-  it("narrows the visible products as you search, ignoring case", async () => {
+  it("narrows the visible products as you search", async () => {
     render(<ProductSearch />);
 
-    await userEvent.type(screen.getByLabelText("Search products"), "mo");
+    await userEvent.type(screen.getByPlaceholderText("Search products"), "monit");
 
     expect(screen.getByText("Monitor")).toBeInTheDocument();
     expect(screen.queryByText("Keyboard")).not.toBeInTheDocument();
-    expect(screen.queryByText("Mouse")).not.toBeInTheDocument();
   });
 
   it("shows the empty state when nothing matches", async () => {
     render(<ProductSearch />);
 
-    await userEvent.type(screen.getByLabelText("Search products"), "zzz");
+    await userEvent.type(screen.getByPlaceholderText("Search products"), "zzz");
 
     expect(screen.getByText("No products found")).toBeInTheDocument();
   });

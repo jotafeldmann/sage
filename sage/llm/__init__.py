@@ -13,7 +13,7 @@ from pathlib import Path
 
 from sage.config import Settings
 from sage.llm.api import ApiLLM
-from sage.llm.base import LLMClient, LLMError, Usage
+from sage.llm.base import LLMAborted, LLMClient, LLMError, Usage
 from sage.llm.manual import ManualLLM
 from sage.llm.replay import ReplayLLM
 from sage.llm.structured import complete_structured
@@ -24,6 +24,7 @@ MODES = ("api", "manual", "replay")
 __all__ = [
     "MODES",
     "ApiLLM",
+    "LLMAborted",
     "LLMClient",
     "LLMError",
     "ManualLLM",

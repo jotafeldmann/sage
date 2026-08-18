@@ -41,6 +41,7 @@ def generator_node(state: SageState, deps: Deps) -> dict:
     prompt = prompts.render(
         "generator",
         project_summary=deps.project.to_prompt_summary(),
+        conventions=_conventions(state),
         spec=state["spec"],
         completed_work=_completed_work(state, task),
         task_position=position,
@@ -84,6 +85,19 @@ def apply_changes(deps: Deps, result: GenerationResult) -> list[str]:
         except WorkspaceError as exc:
             deps.say(f"      refused write to {change.path!r}: {exc}")
     return written
+
+
+def _conventions(state: SageState) -> str:
+    """Only the analyzer's convention list travels into generation.
+
+    A new file has no existing sibling to imitate, so without this the first
+    task in a plan writes blind. The rest of the repository analysis is aimed
+    at planning and is deliberately left out to keep this prompt small.
+    """
+    items = (state.get("repository_context") or {}).get("conventions") or []
+    if not items:
+        return "No conventions were identified; follow the style of the files shown below."
+    return "\n".join(f"- {item}" for item in items)
 
 
 def _completed_work(state: SageState, task: dict) -> str:

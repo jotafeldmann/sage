@@ -51,3 +51,13 @@ class LLMError(RuntimeError):
 
     def __str__(self) -> str:
         return self.message
+
+
+class LLMAborted(LLMError):
+    """The operator cancelled the run.
+
+    Distinct from `LLMError` because it is a control-flow signal, not a model
+    failure: nodes that degrade gracefully when analysis is unavailable must
+    still stop when a human cancels.
+    """
+

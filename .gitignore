@@ -14,3 +14,9 @@ fixtures/test-app/node_modules/
 fixtures/test-app/dist/
 node_modules/
 dist/
+
+# The test fixture is committed pristine. Whatever SAGE generates into it is
+# reproducible from fixtures/cassettes/, so it is not tracked.
+fixtures/test-app/src/*
+!fixtures/test-app/src/App.tsx
+!fixtures/test-app/src/main.tsx

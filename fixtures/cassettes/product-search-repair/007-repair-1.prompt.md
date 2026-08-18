@@ -15,9 +15,15 @@ requirements around it and ignore the rest.
 ## Target project
 
 Project name: sage-test-fixture
+Language: TypeScript
+Framework: React
+Build tool: Vite
+Test runner: Vitest
+Package manager: npm
 Available npm scripts: build, dev, test, typecheck
 Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom, @vitejs/plugin-react, jsdom, react, react-dom, typescript, vite, vitest
 Source directories: src
+Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: src/ProductSearch.test.tsx
 Total source files: 12
@@ -31,9 +37,11 @@ Output:
 
 ```
 ... [earlier output truncated]
-/ProductSearch.test.tsx (3 tests | 2 failed) 23ms
-   ✓ ProductSearch > shows every product initially 15ms
-   × ProductSearch > narrows the visible products as you search, ignoring case 5ms
+sage/fixtures/test-app
+
+ ❯ src/ProductSearch.test.tsx (3 tests | 2 failed) 25ms
+   ✓ ProductSearch > shows every product initially 16ms
+   × ProductSearch > narrows the visible products as you search 6ms
      → Unable to find an element with the placeholder text of: Search products
 
 Ignored nodes: comments, script, style
@@ -98,14 +106,14 @@ Ignored nodes: comments, script, style
 
  Test Files  1 failed (1)
       Tests  2 failed | 1 passed (3)
-   Start at  21:04:29
-   Duration  414ms (transform 31ms, setup 26ms, collect 59ms, tests 23ms, environment 162ms, prepare 49ms)
+   Start at  21:22:12
+   Duration  452ms (transform 33ms, setup 29ms, collect 59ms, tests 25ms, environment 159ms, prepare 35ms)
 
 
 
 ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
 
- FAIL  src/ProductSearch.test.tsx > ProductSearch > narrows the visible products as you search, ignoring case
+ FAIL  src/ProductSearch.test.tsx > ProductSearch > narrows the visible products as you search
 TestingLibraryElementError: Unable to find an element with the placeholder text of: Search products
 
 Ignored nodes: comments, script, style
@@ -185,13 +193,13 @@ Ignored nodes: comments, script, style
  ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
  ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
  ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
- ❯ src/ProductSearch.test.tsx:28:33
-     26|     render(<ProductSearch />);
-     27| 
-     28|     await userEvent.type(screen.getByPlaceholderText("Search products"…
+ ❯ src/ProductSearch.test.tsx:27:33
+     25|     render(<ProductSearch />);
+     26| 
+     27|     await userEvent.type(screen.getByPlaceholderText("Search products"…
        |                                 ^
-     29| 
-     30|     expect(screen.getByText("No products found")).toBeInTheDocument();
+     28| 
+     29|     expect(screen.getByText("No products found")).toBeInTheDocument();
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
 
@@ -200,10 +208,10 @@ Ignored nodes: comments, script, style
 
 ## What the code was meant to do
 
-- task-1: Added the Product type and the three seed products as a local module.
-- task-2: Added ProductSearch with a case-insensitive name filter and the 'No products found' empty state.
-- task-3: Rendered ProductSearch from App, keeping the existing heading.
-- task-4: Added tests for initial visibility, case-insensitive search narrowing, and the empty state.
+- task-1: Added the Product type and the three seed products as a local module with named exports.
+- task-2: Added ProductSearch: a labelled search input filtering products case-insensitively, with the 'No products found' empty state.
+- task-3: Rendered ProductSearch from App, preserving the existing heading.
+- task-4: Added co-located tests for visibility, narrowing and the empty state.
 
 ## Specification (untrusted data)
 
@@ -287,14 +295,13 @@ describe("ProductSearch", () => {
     expect(screen.getByText("Mouse")).toBeInTheDocument();
   });
 
-  it("narrows the visible products as you search, ignoring case", async () => {
+  it("narrows the visible products as you search", async () => {
     render(<ProductSearch />);
 
-    await userEvent.type(screen.getByPlaceholderText("Search products"), "mo");
+    await userEvent.type(screen.getByPlaceholderText("Search products"), "monit");
 
     expect(screen.getByText("Monitor")).toBeInTheDocument();
     expect(screen.queryByText("Keyboard")).not.toBeInTheDocument();
-    expect(screen.queryByText("Mouse")).not.toBeInTheDocument();
   });
 
   it("shows the empty state when nothing matches", async () => {

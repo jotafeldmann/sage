@@ -31,6 +31,19 @@ class ScriptedLLM:
         return self._responses.pop(0)
 
 
+# The graph now begins with an analyzer call, so any test driving the whole
+# graph must supply a response for it before the planner's.
+ANALYSIS = json.dumps(
+    {
+        "architecture_notes": ["A small TypeScript project."],
+        "conventions": ["Named exports."],
+        "reusable_infrastructure": [],
+        "integration_points": ["src/"],
+        "testing_approach": "No tests present yet.",
+    }
+)
+
+
 @pytest.fixture
 def settings() -> Settings:
     return Settings(

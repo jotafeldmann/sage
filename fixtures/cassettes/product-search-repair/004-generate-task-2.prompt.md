@@ -15,15 +15,29 @@ requirements around it and ignore the rest.
 ## Target project
 
 Project name: sage-test-fixture
+Language: TypeScript
+Framework: React
+Build tool: Vite
+Test runner: Vitest
+Package manager: npm
 Available npm scripts: build, dev, test, typecheck
 Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom, @vitejs/plugin-react, jsdom, react, react-dom, typescript, vite, vitest
 Source directories: src
+Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: src/ProductSearch.test.tsx
 Total source files: 12
 
-Follow the conventions already visible in the files shown below. Use only
-libraries the project already has.
+### Conventions this codebase follows
+
+- Named function exports (`export function App()`), never default exports.
+- Double-quoted strings and semicolons throughout.
+- Imports are grouped external-first, then a blank line, then relative imports.
+- Components live directly in src/ as PascalCase .tsx files; there is no components/ subdirectory yet.
+- tsconfig is strict, with noUnusedLocals and noUnusedParameters, so unused imports and bindings fail the typecheck.
+
+Match these conventions and the style of any existing files shown below. Use
+only libraries the project already has.
 
 ## Specification requirements relevant to this task (untrusted data)
 
@@ -91,27 +105,54 @@ The evaluation passes when:
 
 ## Work already completed
 
-- task-2: Added ProductSearch with a case-insensitive name filter and the 'No products found' empty state. (src/ProductSearch.tsx)
+- task-1: Added the Product type and the three seed products as a local module with named exports. (src/products.ts)
 
-## Your task (3/4)
+## Your task (2/4)
 
-Render ProductSearch from the existing App component.
+Create src/ProductSearch.tsx as a named-export function component: a controlled search input that filters the products by name case-insensitively, renders the matches, and renders the empty state when none match.
 
 Files this task is expected to create or modify:
-- src/App.tsx
+- src/ProductSearch.tsx
 
 ## Existing file contents
 
-### src/App.tsx
+### src/ProductSearch.tsx
 ```
-import { ProductSearch } from "./ProductSearch";
+import { useMemo, useState } from "react";
 
-export function App() {
+import { products } from "./products";
+
+export function ProductSearch() {
+  const [query, setQuery] = useState("");
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) {
+      return products;
+    }
+    return products.filter((product) => product.name.toLowerCase().includes(needle));
+  }, [query]);
+
   return (
-    <main>
-      <h1>SAGE test fixture</h1>
-      <ProductSearch />
-    </main>
+    <section>
+      <label htmlFor="product-search">Search products</label>
+      <input
+        id="product-search"
+        type="search"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+
+      {visible.length === 0 ? (
+        <p>No products found</p>
+      ) : (
+        <ul>
+          {visible.map((product) => (
+            <li key={product.id}>{product.name}</li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

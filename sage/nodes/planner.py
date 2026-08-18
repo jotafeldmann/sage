@@ -10,6 +10,7 @@ from sage import prompts
 from sage.deps import Deps
 from sage.llm.structured import complete_structured
 from sage.schemas.plan import Plan
+from sage.schemas.repository import RepositoryContext
 from sage.state import SageState
 
 PLAN_SCHEMA = """{
@@ -26,6 +27,14 @@ PLAN_SCHEMA = """{
 }"""
 
 
+def _context_summary(state: SageState) -> str:
+    """Render the analyzer's findings, or say plainly that there are none."""
+    raw = state.get("repository_context") or {}
+    if not raw:
+        return "No analysis was available for this project."
+    return RepositoryContext.model_validate(raw).to_prompt_summary()
+
+
 def planner_node(state: SageState, deps: Deps) -> dict:
     """Produce a validated plan and reset the task cursor."""
     deps.say("Planning implementation...")
@@ -33,6 +42,7 @@ def planner_node(state: SageState, deps: Deps) -> dict:
     prompt = prompts.render(
         "planner",
         project_summary=deps.project.to_prompt_summary(),
+        repository_context=_context_summary(state),
         spec=state["spec"],
         max_tasks=str(deps.settings.max_tasks),
         schema=PLAN_SCHEMA,

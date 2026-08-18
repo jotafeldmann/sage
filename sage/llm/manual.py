@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import sys
 
-from sage.llm.base import LLMError, Usage
+from sage.llm.base import LLMAborted, Usage
 from sage.llm.transcript import Transcript
 
 
@@ -39,7 +39,7 @@ class ManualLLM:
             try:
                 input()
             except (EOFError, KeyboardInterrupt) as exc:
-                raise LLMError("manual model call aborted by operator") from exc
+                raise LLMAborted("manual model call aborted by operator") from exc
 
             response = self.transcript.read_response(stem)
             if response and response.strip():

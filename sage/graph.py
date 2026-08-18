@@ -1,20 +1,33 @@
 """The SAGE workflow graph.
 
-    START -> planner -> generator --+
-                          ^         | tasks remain
-                          +---------+
-                                    | plan exhausted
-                                    v
-                                validator
-                                    |
-                 succeeded ---------+--------- failed
-                     |                            |
-                     v                    budget remaining?
-                    END                   yes -> repair -> validator
-                                          no  -> END
+    START
+      |
+      v
+    analyzer          (inspect the project before planning against it)
+      |
+      v
+    planner
+      |
+      v
+    generator <--+    (self-edge: one planned task per visit)
+      |          |
+      +----------+
+      | plan exhausted
+      v
+    validator
+      |
+      +-- succeeded --------------------------> END
+      |
+      +-- failed, budget remaining --> repair --+
+      |                                         |
+      |     <-----------------------------------+
+      |
+      +-- failed, budget spent -----------------> END
 
-Two properties matter here:
+Three properties matter here:
 
+* The analyzer runs before planning so the planner is told what the project
+  already is, rather than assuming a fresh scaffold.
 * The generator's self-edge makes task-by-task execution visible in the graph
   rather than hiding it in a Python loop.
 * Termination is guaranteed three ways - the repair budget, the task cap
@@ -30,7 +43,13 @@ from functools import partial
 from langgraph.graph import END, START, StateGraph
 
 from sage.deps import Deps
-from sage.nodes import generator_node, planner_node, repair_node, validator_node
+from sage.nodes import (
+    analyzer_node,
+    generator_node,
+    planner_node,
+    repair_node,
+    validator_node,
+)
 from sage.state import SageState
 
 # Headroom over the worst case: max_tasks generator steps, plus validator and
@@ -58,12 +77,14 @@ def build_graph(deps: Deps):
     """Compile the workflow with `deps` bound to every node."""
     builder = StateGraph(SageState)
 
+    builder.add_node("analyzer", partial(analyzer_node, deps=deps))
     builder.add_node("planner", partial(planner_node, deps=deps))
     builder.add_node("generator", partial(generator_node, deps=deps))
     builder.add_node("validator", partial(validator_node, deps=deps))
     builder.add_node("repair", partial(repair_node, deps=deps))
 
-    builder.add_edge(START, "planner")
+    builder.add_edge(START, "analyzer")
+    builder.add_edge("analyzer", "planner")
     builder.add_edge("planner", "generator")
     builder.add_conditional_edges(
         "generator",
@@ -82,6 +103,7 @@ def build_graph(deps: Deps):
 
 def recursion_limit(deps: Deps) -> int:
     """A ceiling derived from the configured budgets, not a magic number."""
+    fixed_steps = 2  # analyzer + planner
     generator_steps = deps.settings.max_tasks
     repair_steps = deps.settings.max_repair_attempts * 2  # repair + revalidate
-    return generator_steps + repair_steps + RECURSION_LIMIT_HEADROOM
+    return fixed_steps + generator_steps + repair_steps + RECURSION_LIMIT_HEADROOM

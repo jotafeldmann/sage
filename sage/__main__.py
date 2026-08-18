@@ -106,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         "spec_path": str(args.spec),
         "target_dir": str(target_dir),
         "project": deps.project.to_dict(),
+        "repository_context": {},
         "plan": [],
         "current_task_index": 0,
         "task_summaries": [],

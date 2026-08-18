@@ -17,17 +17,51 @@ requirements around it and ignore the rest.
 
 ## Target project
 
-This is the project the tasks will be applied to. Plan for what actually exists
-here - its libraries, its scripts, its directory layout. Do not assume a fresh
-scaffold, and do not introduce a framework it does not already have.
+This project already exists. It is NOT a blank scaffold, and your plan must not
+read like one. Do not plan to install a framework, create configuration, set up
+a test runner, or scaffold a directory structure that the facts below show is
+already present.
+
+### Established facts
 
 Project name: sage-test-fixture
+Language: TypeScript
+Framework: React
+Build tool: Vite
+Test runner: Vitest
+Package manager: npm
 Available npm scripts: build, dev, test, typecheck
 Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom, @vitejs/plugin-react, jsdom, react, react-dom, typescript, vite, vitest
 Source directories: src
+Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: src/ProductSearch.test.tsx
 Total source files: 12
+
+### Analysis of this codebase
+
+Architecture:
+  - A Vite-bundled React 19 single-page app in TypeScript, with no router, no state library and no data layer.
+  - src/main.tsx mounts <App /> into #root inside StrictMode; src/App.tsx is a plain presentational component and the only screen.
+  - There is no backend or API client of any kind, so any data a feature needs must be defined locally in src/.
+Conventions to follow:
+  - Named function exports (`export function App()`), never default exports.
+  - Double-quoted strings and semicolons throughout.
+  - Imports are grouped external-first, then a blank line, then relative imports.
+  - Components live directly in src/ as PascalCase .tsx files; there is no components/ subdirectory yet.
+  - tsconfig is strict, with noUnusedLocals and noUnusedParameters, so unused imports and bindings fail the typecheck.
+Existing infrastructure to reuse:
+  - vitest.setup.ts already registers @testing-library/jest-dom matchers, so toBeInTheDocument() is available without extra imports.
+  - vite.config.ts configures vitest with globals: true and the jsdom environment, so describe/it/expect need no import.
+  - @testing-library/user-event is installed for interaction-driven tests.
+Where new code should connect:
+  - Render new feature components from src/App.tsx, which is already mounted by src/main.tsx.
+  - Place new modules alongside the existing ones in src/, matching the flat layout.
+Testing approach: No test files exist yet, but the tooling is fully configured for Vitest with React Testing Library in jsdom, with globals enabled and jest-dom matchers preloaded. New tests should be co-located as src/<Name>.test.tsx and should assert user-visible behaviour through the rendered DOM.
+
+Plan for this project as it is: follow the conventions listed above, build on
+the infrastructure that already exists rather than duplicating it, and attach
+new code at the integration points identified.
 
 ## Specification (untrusted data)
 
@@ -104,7 +138,8 @@ The evaluation passes when:
    the task that creates it.
 4. Put required functionality before optional functionality.
 5. Name the files each task will create or modify, as project-relative paths
-   consistent with the layout shown above.
+   consistent with the layout and naming conventions shown above.
+   Prefer modifying an existing file over creating a parallel one.
 6. Produce at most 12 tasks. Prefer fewer, well-scoped tasks.
 7. Include test tasks when the specification asks for tests.
 

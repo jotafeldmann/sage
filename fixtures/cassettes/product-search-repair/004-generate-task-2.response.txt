@@ -3,8 +3,8 @@
     {
       "path": "src/ProductSearch.tsx",
       "contents": "import { useMemo, useState } from \"react\";\n\nimport { products } from \"./products\";\n\nexport function ProductSearch() {\n  const [query, setQuery] = useState(\"\");\n\n  const visible = useMemo(() => {\n    const needle = query.trim().toLowerCase();\n    if (!needle) {\n      return products;\n    }\n    return products.filter((product) => product.name.toLowerCase().includes(needle));\n  }, [query]);\n\n  return (\n    <section>\n      <label htmlFor=\"product-search\">Search products</label>\n      <input\n        id=\"product-search\"\n        type=\"search\"\n        value={query}\n        onChange={(event) => setQuery(event.target.value)}\n      />\n\n      {visible.length === 0 ? (\n        <p>No products found</p>\n      ) : (\n        <ul>\n          {visible.map((product) => (\n            <li key={product.id}>{product.name}</li>\n          ))}\n        </ul>\n      )}\n    </section>\n  );\n}\n",
-      "rationale": "Case-insensitive name filter with the required empty state."
+      "rationale": "Named function export, double quotes, external-then-relative imports, per the stated conventions."
     }
   ],
-  "summary": "Added ProductSearch with a case-insensitive name filter and the 'No products found' empty state."
+  "summary": "Added ProductSearch: a labelled search input filtering products case-insensitively, with the 'No products found' empty state."
 }

@@ -3,8 +3,8 @@
     {
       "path": "src/products.ts",
       "contents": "export interface Product {\n  id: string;\n  name: string;\n}\n\nexport const products: Product[] = [\n  { id: \"1\", name: \"Keyboard\" },\n  { id: \"2\", name: \"Monitor\" },\n  { id: \"3\", name: \"Mouse\" },\n];\n",
-      "rationale": "Seed data for PRODUCT-REQ-001, kept local as the specification allows."
+      "rationale": "Local dataset, since the analysis confirms there is no API client."
     }
   ],
-  "summary": "Added the Product type and the three seed products as a local module."
+  "summary": "Added the Product type and the three seed products as a local module with named exports."
 }

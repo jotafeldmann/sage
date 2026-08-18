@@ -1,7 +1,7 @@
-"""The recorded Milestone 1 run, replayed as a regression test.
+"""Recorded runs, replayed as regression tests.
 
-This exercises the whole loop - plan, four generation tasks, validation via real
-`npm run` commands, two repair attempts, and recovery - against a real React
+These exercise the whole graph - analysis, planning, task-by-task generation,
+validation via real `npm run` commands, and repair - against a real React
 project. Only the model responses are recorded; everything else runs for real.
 
 Skipped when the fixture's dependencies are not installed, since the validation
@@ -24,12 +24,19 @@ from sage.llm.transcript import Transcript
 from sage.state import SageState
 
 REPO = Path(__file__).resolve().parent.parent
-CASSETTE = REPO / "fixtures/cassettes/product-search"
+CASSETTES = REPO / "fixtures/cassettes"
 FIXTURE_APP = REPO / "fixtures/test-app"
 SPEC = REPO / "specs/examples/product-search.md"
 
-# Files the recorded run generates; the fixture must start without them.
+# Files the recorded runs generate. The fixture is committed without them.
 GENERATED = ("src/products.ts", "src/ProductSearch.tsx", "src/ProductSearch.test.tsx")
+
+EXPECTED_FILES = [
+    "src/App.tsx",
+    "src/ProductSearch.test.tsx",
+    "src/ProductSearch.tsx",
+    "src/products.ts",
+]
 
 pytestmark = pytest.mark.skipif(
     not (FIXTURE_APP / "node_modules").is_dir(),
@@ -51,7 +58,7 @@ def app_copy(tmp_path: Path) -> Path:
     return target
 
 
-def test_recorded_run_replays_to_a_passing_application(app_copy: Path) -> None:
+def _replay(cassette: str, app: Path) -> dict:
     settings = Settings(
         llm_mode="replay",
         api_base_url=None,
@@ -59,18 +66,19 @@ def test_recorded_run_replays_to_a_passing_application(app_copy: Path) -> None:
         model="",
         max_repair_attempts=2,
         max_tasks=12,
-        target_dir=app_copy,
+        target_dir=app,
     )
     deps = Deps.create(
-        llm=ReplayLLM(Transcript(CASSETTE)), settings=settings, target_dir=app_copy
+        llm=ReplayLLM(Transcript(CASSETTES / cassette)), settings=settings, target_dir=app
     )
     deps.quiet = True
 
     initial: SageState = {
         "spec": SPEC.read_text(encoding="utf-8"),
         "spec_path": str(SPEC),
-        "target_dir": str(app_copy),
+        "target_dir": str(app),
         "project": deps.project.to_dict(),
+        "repository_context": {},
         "plan": [],
         "current_task_index": 0,
         "task_summaries": [],
@@ -81,34 +89,54 @@ def test_recorded_run_replays_to_a_passing_application(app_copy: Path) -> None:
         "status": "running",
         "failure_reason": None,
     }
+    return build_graph(deps).invoke(initial, config={"recursion_limit": recursion_limit(deps)})
 
-    final = build_graph(deps).invoke(
-        initial, config={"recursion_limit": recursion_limit(deps)}
-    )
+
+def test_the_clean_run_reaches_a_passing_application(app_copy: Path) -> None:
+    final = _replay("product-search", app_copy)
 
     assert final["status"] == "succeeded"
     assert final["validation_passed"] is True
+    assert final["repair_attempts"] == 0
+    assert sorted(set(final["changed_files"])) == EXPECTED_FILES
 
-    # The recorded run needed both repair attempts to reach green.
-    assert final["repair_attempts"] == 2
-
-    # Every planned file was written.
-    assert sorted(set(final["changed_files"])) == [
-        "src/App.tsx",
-        "src/ProductSearch.test.tsx",
-        "src/ProductSearch.tsx",
-        "src/products.ts",
-    ]
-
-    # All three deterministic gates ran and passed.
     ran = {r["command"]: r for r in final["validation_results"] if not r["skipped"]}
     assert set(ran) == {"npm run typecheck", "npm run test", "npm run build"}
     assert all(result["passed"] for result in ran.values())
 
 
+def test_the_plan_is_repository_aware(app_copy: Path) -> None:
+    """Milestone 2: analysis happens before planning and reaches the plan."""
+    final = _replay("product-search", app_copy)
+
+    # The analyzer ran and its findings are in state.
+    context = final["repository_context"]
+    assert context["conventions"], "analyzer produced no conventions"
+    assert context["testing_approach"]
+
+    # The deterministic probe identified the stack rather than assuming it.
+    assert final["project"]["framework"] == "React"
+    assert final["project"]["test_runner"] == "Vitest"
+    assert final["project"]["build_tool"] == "Vite"
+
+    # The plan modifies the existing entry component instead of scaffolding a
+    # parallel one, which is what "does not assume a fresh scaffold" means.
+    planned_files = {path for task in final["plan"] for path in task["files"]}
+    assert "src/App.tsx" in planned_files
+    assert not any(p.startswith("src/components/") for p in planned_files)
+
+
+def test_the_repair_run_recovers_from_a_real_failure(app_copy: Path) -> None:
+    final = _replay("product-search-repair", app_copy)
+
+    assert final["status"] == "succeeded"
+    assert final["repair_attempts"] == 1
+    assert sorted(set(final["changed_files"])) == EXPECTED_FILES
+
+
 def test_the_generated_application_satisfies_the_specification(app_copy: Path) -> None:
     """Re-run the app's own test suite outside SAGE, as a reviewer would."""
-    test_recorded_run_replays_to_a_passing_application(app_copy)
+    _replay("product-search", app_copy)
 
     completed = subprocess.run(
         ["npm", "run", "--silent", "test"],
@@ -119,5 +147,4 @@ def test_the_generated_application_satisfies_the_specification(app_copy: Path) -
     )
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    combined = completed.stdout + completed.stderr
-    assert "4 passed" in combined
+    assert "4 passed" in completed.stdout + completed.stderr
