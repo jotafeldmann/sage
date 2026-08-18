@@ -15,12 +15,14 @@ from sage.deps import Deps
 from sage.schemas.validation import ValidationResult, extract_mentioned_files, strip_ansi
 from sage.state import SageState
 from sage.tools.diagnostics import classify_failure, parse_diagnostics, parse_test_counts
+from sage.tools.shell import ShellError
 
 
 def validator_node(state: SageState, deps: Deps) -> dict:
     """Run available validation commands and set the run's terminal status."""
     deps.refresh_project()
     runner = deps.script_runner()
+    _ensure_dependencies(deps, runner)
     known_files = set(deps.fs.list_files())
 
     results: list[ValidationResult] = []
@@ -59,6 +61,32 @@ def validator_node(state: SageState, deps: Deps) -> dict:
         "validation_passed": passed,
         **_terminal_status(state, deps, passed),
     }
+
+
+def _ensure_dependencies(deps: Deps, runner) -> None:
+    """Install the target project's dependencies if they are missing.
+
+    Without this, validating a freshly copied project fails with exit 127
+    because the toolchain is not on disk - and repair then spends its budget on
+    a problem no source change can fix. SPEC.md 7.2 lists dependency
+    installation as an intended allowlisted operation for exactly this reason.
+
+    Installation is attempted once. If it fails, validation still runs and
+    reports the real error rather than hiding it behind an install failure.
+    """
+    if not deps.project.has_package_json:
+        return
+    if (deps.fs.root / "node_modules").is_dir():
+        return
+
+    deps.say("Installing target project dependencies...")
+    mode = "ci" if (deps.fs.root / "package-lock.json").is_file() else "install"
+    try:
+        result = runner.install(mode)
+    except ShellError as exc:
+        deps.say(f"  could not install dependencies: {exc}")
+        return
+    deps.say("  done." if result.passed else f"  install failed (exit {result.exit_code})")
 
 
 def _terminal_status(state: SageState, deps: Deps, passed: bool) -> dict:
