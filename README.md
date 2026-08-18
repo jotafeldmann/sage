@@ -6,7 +6,7 @@ SAGE is a small agentic spec-to-code workflow that takes a natural-language soft
 
 The original take-home assessment is preserved at [`docs/project.pdf`](docs/project.pdf). It is the canonical source of truth for assessment requirements. [`SPEC.md`](SPEC.md) translates those requirements into an actionable implementation specification for SAGE.
 
-**Status: Milestone 3 complete.** The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
+**Status: Milestone 4 complete.** The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
 
 ## How to Run
 
@@ -63,12 +63,12 @@ Two runs are recorded: `product-search` (passes first time) and
 | Structured outputs | Pydantic | Planner and change output are validated before they drive execution |
 | LLM provider | OpenAI-compatible, configured by environment | Model choice stays configuration, not code |
 | Deterministic validation | The target project's own npm scripts | The compiler and test suite are stronger gates than an LLM review |
-| Agent checks | pytest, ruff | 138 tests covering tool boundaries, bounded repair, repository probing, context scoping, and generalization |
+| Agent checks | pytest, ruff | 174 tests covering tool boundaries, bounded repair, repository probing, context scoping, output normalization, and generalization |
 
 ## Current limitations
 
 - **The official assessment boilerplate is not present.** `docs/project.pdf` lists it as "provided separately" and it was not supplied with this workspace. SAGE has therefore been built to discover a target project's scripts, libraries and layout at runtime rather than assume that stack. `fixtures/test-app/` is a clearly-labelled throwaway harness used to exercise the loop; it is **not** the boilerplate and **not** the submission's `generated-app/`, which remains empty by design.
-- Milestones 4–7 are not implemented.
+- Milestones 5–7 are not implemented.
 
 ## Extras
 

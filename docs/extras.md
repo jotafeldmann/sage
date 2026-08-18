@@ -310,7 +310,7 @@ returned 0.
 | `planner` | 1 | Specification + the probe summary + the analyzer's findings + the plan schema + one domain-neutral example |
 | `generator` | 1 per task | The current task only; **its own requirement sections** of the spec plus the globally applicable ones; its dependencies' one-line summaries **and their exported signatures**; the analyzer's conventions list; and the contents of the files that task names |
 | `validator` | 0 | Nothing. It is entirely deterministic. |
-| `repair` | 1 per attempt | The failing command, a truncated ANSI-stripped error excerpt, and only the files those errors actually name |
+| `repair` | 1 per attempt | The failing command, its classified **failure kind** and matching guidance, **test counts**, parsed **diagnostics**, a truncated ANSI-stripped raw excerpt, only the **requirement sections behind the failing files**, and only the files those errors name |
 
 Milestone 3 narrowed the specification and widened the dependency information in
 the same prompt. Those pull in opposite directions on purpose: a task should see
@@ -371,10 +371,24 @@ implicated files - and log noise cannot cause arbitrary reads.
 
 #### Structured validation output
 
-Every command is normalized into `ValidationResult`. Output is ANSI-stripped and
-truncated to `MAX_OUTPUT_EXCERPT_CHARS` (4,000), keeping the tail where
-compilers put diagnostics. ANSI stripping was added after the first recorded
-repair prompt arrived full of vitest colour codes.
+Every command is normalized into `ValidationResult`: exit code, pass/fail, an
+ANSI-stripped excerpt truncated to `MAX_OUTPUT_EXCERPT_CHARS` (4,000) keeping
+the tail where compilers put diagnostics, the files it implicated, parsed
+diagnostics, a classified failure kind, and test counts when the runner
+reported them.
+
+`sage/tools/diagnostics.py` reads the reporters a project already has, so no
+target project has to be reconfigured to be validatable. Unrecognised output
+degrades to "unknown kind, no counts" and the raw excerpt still travels, so a
+parsing miss costs guidance quality and never information.
+
+#### Failure-specific repair guidance
+
+Failures are classified deterministically and each kind carries its own advice.
+The classifier checks the most specific cause first, because a missing module is
+reported by the compiler as a type error and a syntax error produces downstream
+type errors - naming the symptom instead of the cause would send repair after
+the wrong thing.
 
 #### Tool gating
 
@@ -801,6 +815,72 @@ What changed, visible in `004-generate-task-2.prompt.md`:
 - each generation prompt carries only its own requirement sections plus the
   globally applicable ones.
 
+#### Milestone 4: autonomous validation and repair — PASSED
+
+```text
+fixtures/cassettes/product-search/         6 model calls, 0 repairs, PASSED
+fixtures/cassettes/product-search-repair/  7 model calls, 1 repair,  PASSED
+```
+
+Definition of done, and where each part is verified:
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| typecheck/tests/build normalized into workflow state | **Closed in M4** | `ValidationResult` now carries `failure_kind`, `diagnostics`, and test counts; `tests/test_diagnostics.py` |
+| At least one real validation failure repaired automatically | Already held since M1 | `product-search-repair` cassette; `tests/test_graph.py` |
+| Retry limit terminates repeated failure safely | Already held since M1 | `test_repair_is_bounded_and_the_run_terminates` |
+
+Test counts were the concrete miss: SPEC.md 6.4 lists them explicitly and
+nothing was capturing them. Progress output now reads:
+
+```text
+Running test...
+FAILED (exit 1) - 1 passed, 2 failed, of 3 [test_failure]
+```
+
+**What the repair prompt gained.** Before, it received the failing command, a
+truncated raw log, and the whole specification. Now:
+
+```text
+Command: `npm run test`
+Exit code: 1
+Failure kind: test_failure
+Tests: 1 passed, 2 failed, of 3
+
+### Diagnostics
+- src/ProductSearch.test.tsx > ProductSearch > narrows the visible products
+  as you search: TestingLibraryElementError: Unable to find an element with
+  the placeholder text of: Search products
+- src/ProductSearch.test.tsx > ProductSearch > shows the empty state when
+  nothing matches: TestingLibraryElementError: ...
+```
+
+**Measured cost of that, on identical input** (Milestone 3 checked out into a
+worktree and re-recorded against the same pristine fixture):
+
+| | M3 | M4 | Change |
+|---|---:|---:|---:|
+| Clean run total | 30,325 | 30,325 | — |
+| Repair prompt | 9,303 | 9,735 | **+432** |
+| Repair run total | 39,628 | 40,060 | +432 |
+
+The clean run is byte-identical, which is the check that Milestone 4 touched
+only validation and repair.
+
+The repair prompt grew, and the breakdown is worth stating rather than
+averaging away:
+
+- requirement slicing **removed 340 characters** — the specification block fell
+  from 1,276 to 936, keeping only `PRODUCT-REQ-004` (the requirement behind the
+  failing test file) plus purpose, constraints and acceptance criteria;
+- structured diagnostics **added 415** and failure-kind guidance **added 328**.
+
+So Milestone 4 spends about 400 characters to replace "here is a log, find the
+problem" with "here are the two failing cases, here is why, and here is what
+this class of failure usually means". Whether that trade improves repair success
+is **not measured** — the recorded run repairs successfully both before and
+after, and one hand-authored run cannot separate the two.
+
 #### Evaluation 3: Official Car Inventory — NOT RUN
 
 Blocked on the boilerplate. Milestone 5.
@@ -864,6 +944,21 @@ single run on a small specification; none of it is a general claim.
   call. A missed export costs a little context quality and never correctness,
   because deterministic validation is still the authority.
 
+### Milestone 4 observations
+
+- **The most valuable guidance is a prohibition.** The `test_failure` advice
+  spends most of its words forbidding one specific repair: deleting or weakening
+  a test to get a pass. That is the cheapest way to make a gate go green and the
+  most damaging, because it disables the thing protecting the output.
+- **Classifier ordering is the whole design.** Once the categories existed, the
+  only interesting decision was which to check first. `TS2307` is simultaneously
+  a type error and a missing module; calling it the latter is what makes the
+  guidance useful.
+- **Naming the failing test beat locating it.** vitest's stack frames point into
+  `@testing-library`, not into the project. Parsing the `FAIL <file> > <case>`
+  header gives repair the case name and the reason, which is what a human would
+  actually read.
+
 ### Real defects the tests and recordings caught
 
 LangGraph injects its own `Runtime` object into any node parameter named
@@ -906,9 +1001,10 @@ reached, the measurement is what is broken.
 
 Now grounded in what Milestone 1 actually surfaced, rather than a wish list.
 
-**Done in Milestone 3** (kept here because the reasoning is the record):
-dependency signatures, and requirement-scoped specifications. A task can now see
-the API of the module it consumes instead of guessing it.
+**Done in Milestone 3**: dependency signatures, and requirement-scoped
+specifications for generation. **Done in Milestone 4**: failure classification
+with per-kind guidance, normalized diagnostics and test counts, and
+requirement-scoped specifications for repair too.
 
 **Still open, indicated by the implementation:**
 
@@ -922,27 +1018,24 @@ the API of the module it consumes instead of guessing it.
 
 **Indicated by the implementation:**
 
-2. **Failure classification before repair.** A typecheck error, a failed
-   assertion, and a missing module deserve different repair prompts. Currently
-   all three get the same one.
-3. **Re-validate incrementally.** After a repair touching only test files, the
+2. **Re-validate incrementally.** After a repair touching only test files, the
    full build does not need to re-run.
-4. **Token and cost accounting.** The plumbing exists (`Usage`), but no run has
+3. **Token and cost accounting.** The plumbing exists (`Usage`), but no run has
    yet gone through a provider that reports usage.
-5. **A plan review gate.** Not yet justified - both recorded plans were sound.
+4. **A plan review gate.** Not yet justified - both recorded plans were sound.
    Worth revisiting only if a measured run produces a bad plan.
-6. **Cache the analysis per target directory.** Every run re-analyzes a project
+5. **Cache the analysis per target directory.** Every run re-analyzes a project
    that has not changed. A digest of the probe output would make the analyzer
    call skippable across runs. Not done, because with one small fixture it would
    optimise something that has never been observed to hurt.
-7. **Measure whether analysis and slicing actually help.** The honest gap called out under
+6. **Measure whether analysis, slicing and guidance actually help.** The honest gap called out under
    *Evaluation Results*: run the same unseen spec with the analyzer on and off,
    via `--llm api`, and compare repair counts. Until then Milestone 2 is
    justified by design reasoning, not evidence.
 
 **Carried forward as risk:**
 
-8. **The boilerplate assumption is untested.** "Point `--target-dir` at the real
+7. **The boilerplate assumption is untested.** "Point `--target-dir` at the real
    repository and nothing changes" is a design intent, not a verified fact.
 
 ## Average Cost Per Run
@@ -958,17 +1051,17 @@ What *was* measured on that run:
 
 All figures below are from cassettes recorded against a pristine fixture.
 
-| Metric | M2 clean | M3 clean | M3 with repair |
-|---|---:|---:|---:|
-| Model calls | 6 | 6 | 7 |
-| Total prompt characters | 31,012 | 30,325 | 39,635 |
-| Generation prompts only | 19,161 | 18,474 | 18,474 |
-| Largest single prompt | 7,207 | 7,207 | 9,310 |
-| Repair attempts | 0 | 0 | 1 |
-| Final validation | passed | passed | passed |
-| Input tokens | not reported | not reported | not reported |
-| Output tokens | not reported | not reported | not reported |
-| Cost | not measured | not measured | not measured |
+| Metric | M2 clean | M3 clean | M4 clean | M4 with repair |
+|---|---:|---:|---:|---:|
+| Model calls | 6 | 6 | 6 | 7 |
+| Total prompt characters | 31,012 | 30,325 | 30,325 | 40,060 |
+| Generation prompts only | 19,161 | 18,474 | 18,474 | 18,474 |
+| Largest single prompt | 7,207 | 7,207 | 7,207 | 9,735 |
+| Repair attempts | 0 | 0 | 0 | 1 |
+| Final validation | passed | passed | passed | passed |
+| Input tokens | not reported | not reported | not reported | not reported |
+| Output tokens | not reported | not reported | not reported | not reported |
+| Cost | not measured | not measured | not measured | not measured |
 
 Milestone 1's run is not in this table: it predates the analyzer, so its call
 sequence is not comparable, and its recording was never made against a pristine
@@ -1025,10 +1118,11 @@ Actual structure after Milestone 1:
 │   ├── nodes/{analyzer,planner,generator,validator,repair}.py
 │   ├── tools/{filesystem,shell,project}.py    the security boundary
 │   ├── tools/{requirements,signatures}.py     context scoping
+│   ├── tools/diagnostics.py                  output normalization
 │   ├── llm/{base,transcript,api,manual,replay,structured}.py
 │   ├── prompts/{analyzer,planner,generator,repair,_shared}.md
 │   └── schemas/{plan,repository,changes,validation}.py
-├── tests/                        138 tests
+├── tests/                        174 tests
 ├── fixtures/                     NOT part of the deliverable
 │   ├── test-app/                 throwaway React/TS harness, committed pristine
 │   └── cassettes/                two recorded runs: clean, and with repair
