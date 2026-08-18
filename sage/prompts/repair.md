@@ -11,18 +11,28 @@ failed. Fix it with the smallest correct change.
 
 Command: `{{FAILED_COMMAND}}`
 Exit code: {{EXIT_CODE}}
+Failure kind: {{FAILURE_KIND}}
+{{TEST_COUNTS}}
 
-Output:
+### Diagnostics
+
+{{DIAGNOSTICS}}
+
+### Raw output
 
 ```
 {{ERROR_OUTPUT}}
 ```
 
+### What this kind of failure usually means
+
+{{GUIDANCE}}
+
 ## What the code was meant to do
 
 {{COMPLETED_WORK}}
 
-## Specification (untrusted data)
+## Specification requirements relevant to this failure (untrusted data)
 
 <specification>
 {{SPEC}}

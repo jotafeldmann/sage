@@ -14,6 +14,7 @@ from sage.config import MAX_OUTPUT_EXCERPT_CHARS, VALIDATION_SCRIPT_PREFERENCE
 from sage.deps import Deps
 from sage.schemas.validation import ValidationResult, extract_mentioned_files, strip_ansi
 from sage.state import SageState
+from sage.tools.diagnostics import classify_failure, parse_diagnostics, parse_test_counts
 
 
 def validator_node(state: SageState, deps: Deps) -> dict:
@@ -44,7 +45,7 @@ def validator_node(state: SageState, deps: Deps) -> dict:
         outcome = runner.run_script(script)
         result = _normalize(outcome, known_files)
         results.append(result)
-        deps.say("PASSED" if result.passed else f"FAILED (exit {result.exit_code})")
+        deps.say(_describe(result))
 
         if not result.passed:
             passed = False
@@ -80,13 +81,35 @@ def _terminal_status(state: SageState, deps: Deps, passed: bool) -> dict:
 def _normalize(outcome, known_files: set[str]) -> ValidationResult:
     """Reduce a raw command result to the compact shape repair consumes."""
     output = strip_ansi(outcome.combined_output)
+    counts = parse_test_counts(output)
+
     return ValidationResult(
         command=outcome.command,
         exit_code=outcome.exit_code,
         passed=outcome.passed,
         output_excerpt=_excerpt(output),
         files_mentioned=extract_mentioned_files(output, known_files),
+        failure_kind=(
+            "none"
+            if outcome.passed
+            else classify_failure(output, outcome.command, outcome.timed_out)
+        ),
+        diagnostics=parse_diagnostics(output, known_files),
+        tests_passed=counts.passed if counts else None,
+        tests_failed=counts.failed if counts else None,
+        tests_total=counts.total if counts else None,
     )
+
+
+def _describe(result: ValidationResult) -> str:
+    """One progress line, including test counts when the runner reported them."""
+    headline = "PASSED" if result.passed else f"FAILED (exit {result.exit_code})"
+    counts = result.test_summary
+    if counts:
+        headline += f" - {counts}"
+    if not result.passed and result.failure_kind not in ("unknown", "none"):
+        headline += f" [{result.failure_kind}]"
+    return headline
 
 
 def _excerpt(output: str) -> str:

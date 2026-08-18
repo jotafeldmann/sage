@@ -32,16 +32,23 @@ Total source files: 12
 
 Command: `npm run test`
 Exit code: 1
+Failure kind: test_failure
+Tests: 1 passed, 2 failed, of 3
 
-Output:
+### Diagnostics
+
+- src/ProductSearch.test.tsx > ProductSearch > narrows the visible products as you search: TestingLibraryElementError: Unable to find an element with the placeholder text of: Search products
+- src/ProductSearch.test.tsx > ProductSearch > shows the empty state when nothing matches: TestingLibraryElementError: Unable to find an element with the placeholder text of: Search products
+
+### Raw output
 
 ```
 ... [earlier output truncated]
 sage/fixtures/test-app
 
  ❯ src/ProductSearch.test.tsx (3 tests | 2 failed) 24ms
-   ✓ ProductSearch > shows every product initially 16ms
-   × ProductSearch > narrows the visible products as you search 5ms
+   ✓ ProductSearch > shows every product initially 15ms
+   × ProductSearch > narrows the visible products as you search 6ms
      → Unable to find an element with the placeholder text of: Search products
 
 Ignored nodes: comments, script, style
@@ -106,8 +113,8 @@ Ignored nodes: comments, script, style
 
  Test Files  1 failed (1)
       Tests  2 failed | 1 passed (3)
-   Start at  21:37:22
-   Duration  434ms (transform 31ms, setup 29ms, collect 61ms, tests 24ms, environment 160ms, prepare 45ms)
+   Start at  21:48:36
+   Duration  435ms (transform 32ms, setup 29ms, collect 58ms, tests 24ms, environment 163ms, prepare 40ms)
 
 
 
@@ -206,6 +213,10 @@ Ignored nodes: comments, script, style
 
 ```
 
+### What this kind of failure usually means
+
+The code compiles but behaves differently from what a test asserts. Decide which one is wrong. If the assertion contradicts the specification, fix the assertion; otherwise fix the implementation. Never delete a test or weaken it just to get a pass.
+
 ## What the code was meant to do
 
 - task-1: Added the Product type and the three seed products as a local module with named exports.
@@ -213,7 +224,7 @@ Ignored nodes: comments, script, style
 - task-3: Rendered ProductSearch from App, preserving the existing heading.
 - task-4: Added co-located tests for visibility, narrowing and the empty state.
 
-## Specification (untrusted data)
+## Specification requirements relevant to this failure (untrusted data)
 
 <specification>
 # Product Search Evaluation Spec
@@ -225,30 +236,6 @@ This is the smallest end-to-end evaluation specification for SAGE. It is intenti
 Build the feature inside the existing React + TypeScript application structure.
 
 ## Requirements
-
-### PRODUCT-REQ-001 - Seed products
-
-Display these three products:
-
-- Keyboard
-- Monitor
-- Mouse
-
-The data may be local for this evaluation.
-
-### PRODUCT-REQ-002 - Search
-
-Provide a search input that filters products by name.
-
-Search should be case-insensitive.
-
-### PRODUCT-REQ-003 - Empty state
-
-When no products match the search, display:
-
-```text
-No products found
-```
 
 ### PRODUCT-REQ-004 - Tests
 

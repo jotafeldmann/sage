@@ -22,7 +22,12 @@ _PATH_PATTERN = re.compile(r"(?:^|[\s(\"'])([\w./-]+\.(?:tsx?|jsx?|mts|cts))(?=[
 
 
 class ValidationResult(BaseModel):
-    """The outcome of one deterministic validation command."""
+    """The outcome of one deterministic validation command.
+
+    Captures everything SPEC.md 6.4 asks validation state to hold: the command,
+    its exit code, normalized success, useful output, the files it implicated,
+    and test counts when the runner reported them.
+    """
 
     command: str
     exit_code: int
@@ -30,6 +35,20 @@ class ValidationResult(BaseModel):
     output_excerpt: str = ""
     files_mentioned: list[str] = Field(default_factory=list)
     skipped: bool = False
+
+    # Normalized detail, absent when the tool's output could not be parsed.
+    failure_kind: str = "unknown"
+    diagnostics: list[str] = Field(default_factory=list)
+    tests_passed: int | None = None
+    tests_failed: int | None = None
+    tests_total: int | None = None
+
+    @property
+    def test_summary(self) -> str | None:
+        """A one-line count, or None when this command ran no tests."""
+        if self.tests_total is None:
+            return None
+        return f"{self.tests_passed} passed, {self.tests_failed} failed, of {self.tests_total}"
 
 
 def extract_mentioned_files(output: str, known_files: set[str]) -> list[str]:
