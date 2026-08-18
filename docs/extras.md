@@ -78,39 +78,56 @@ SAGE does not need to adopt OpenSpec itself for this take-home. It borrows the d
 
 ## External Dependencies and Known Limitations
 
-### The official boilerplate is not available
+### The boilerplate is a reconstruction, not the assessment's
 
 `docs/project.pdf` lists the boilerplate under **"Repository: Provided
-separately"**. It was not supplied with this workspace and is not present in it.
-Everything the assessment says about that repository - React 19, Vite, Apollo
-Client, MUI, MSW, Vitest, a `Car` type, a `GetCars` query, five seed cars - is
-therefore **documentation, not something SAGE has ever seen**.
+separately"**. It was never supplied with this workspace.
 
-Decision: do not download, infer, or recreate a replacement and treat it as the
-real target. A reconstruction would look like the boilerplate without being it,
-and every difference would surface as a mystery failure during the Car Inventory
-milestone.
+For most of this project's history that was treated as a hard blocker, and
+`boilerplate/` did not exist: the reasoning was that a lookalike differs from
+the real thing in ways that only surface as mystery failures later. That
+reasoning still holds and is recorded here because it is the reason the
+reconstruction is labelled as loudly as it is.
 
-Consequences, all deliberate:
+The decision was subsequently reversed, deliberately: being blocked indefinitely
+is worse than proceeding against a clearly-labelled stand-in, provided nothing
+is passed off as official. So `boilerplate/` now exists, written from the
+assessment's description:
 
-- **SAGE assumes nothing about the target stack.** It discovers npm scripts,
-  libraries and layout by reading `package.json` and the file listing at
-  runtime. `tests/test_generalization.py` asserts that the strings `apollo`,
-  `msw`, `graphql`, `mui` and the evaluation specs' vocabulary appear nowhere
-  in SAGE core.
-- **Validation commands are discovered, not assumed.** A project without a
+| Documented | Implemented |
+|---|---|
+| React 19 + TypeScript | React 19.2, TypeScript 5.9 |
+| Vite | Vite 7 |
+| Apollo Client (GraphQL) | Apollo Client 4 against a relative `/graphql` endpoint |
+| MSW for API mocking | MSW 2 — Service Worker in the browser, `setupServer` in tests, one shared set of handlers |
+| Material UI | MUI 7 |
+| Vitest + Testing Library | Vitest 3, Testing Library, jsdom |
+| `Car` type with 8 fields | `src/types/car.ts`, exactly as documented |
+| Five seed cars | `src/mocks/data.ts` |
+| `GetCars`, `GetCar`, `AddCar` | `src/graphql/operations.ts`, all three resolved by MSW |
+
+**What this is not.** File layout, seed values, schema shape and naming are our
+choices. No result obtained against `boilerplate/` is a result against the real
+repository, and `boilerplate/README.md` says so in its own opening notice rather
+than letting the directory imply otherwise.
+
+**What it does not change.** SAGE was built to discover a target project rather
+than assume one, and that property was not relaxed to accommodate this. The
+probe identified the new stack — Apollo, MSW, MUI, graphql among the libraries,
+Vite as build tool, Vitest as runner — with no SAGE modification at all, which
+is a second data point for the same claim Milestone 6 tested.
+
+Consequences that remain:
+
+- **Validation commands are still discovered, not assumed.** A project without a
   `typecheck` script is not a failing project; that gate is skipped and recorded
   as skipped.
-- **`generated-app/` is intentionally empty.** It is the submission's output
-  directory and stays empty until there is a real boilerplate to copy into it.
-- **`fixtures/test-app/` is a throwaway harness**, labelled as such in the first
-  line of its own README. It is minimal React + TypeScript + Vitest with no
-  Apollo, MSW or MUI, precisely so that SAGE cannot quietly acquire habits from
-  a stand-in.
-
-To plug the real boilerplate in later: point `--target-dir` at it. No SAGE code
-change is expected. That expectation is untested until the boilerplate exists,
-and it is the main risk carried into Milestone 5.
+- **`fixtures/test-app/` still exists and is still a throwaway harness.** It is
+  deliberately minimal — no Apollo, MSW or MUI — so the recorded cassettes
+  exercise SAGE against a project that shares nothing with the richer stack.
+- **The official boilerplate remains preferable.** If it arrives, point
+  `--target-dir` at it; no SAGE change is expected, and that expectation is
+  still untested against the real repository.
 
 ### Other limitations after Milestone 1
 
@@ -923,17 +940,34 @@ one, because repository analysis describes the project and not the
 specification. That is a design property worth naming: analysis is cacheable
 per target directory precisely because it does not depend on the spec.
 
-#### Evaluation 3: Official Car Inventory — NOT RUN
+#### Evaluation 3: Car Inventory — NOT RUN YET
 
-Blocked, and this is the one milestone that cannot be unblocked by any amount of
-work here. `specs/car-inventory.md` requires Apollo Client, an MSW-backed
-GraphQL mock, a `GetCars` query, a `Car` type and five seed cars — all of them
-provided by the boilerplate `docs/project.pdf` lists as "provided separately",
-which is not in this workspace. Generating against a reconstruction would prove
-nothing about the real repository.
+No longer blocked. `boilerplate/` now provides the stack this evaluation needs —
+Apollo Client, an MSW-mocked GraphQL API, the documented `Car` type, five seed
+cars, and the `GetCars`, `GetCar` and `AddCar` operations — and SAGE's probe
+identifies all of it without modification:
 
-Everything the milestone needs on SAGE's side is in place and demonstrated on
-two other specifications. What is missing is the input.
+```text
+Framework: React            Build tool: Vite       Test runner: Vitest
+Libraries: @apollo/client, @emotion/react, @emotion/styled, @mui/material,
+           graphql, msw, react, react-dom, ...
+Scripts:   build, dev, preview, test, typecheck
+```
+
+What remains is the run itself:
+
+```bash
+python -m sage specs/car-inventory.md --target-dir boilerplate --llm api
+```
+
+It has not been performed. Two honest caveats attach to it when it is:
+
+1. **The target is a reconstruction.** Success against `boilerplate/` is
+   evidence about SAGE, not evidence about the official repository.
+2. **It wants a real provider.** Hand-authoring a transcript for a
+   GraphQL-backed application with sorting, search and a mutation would be
+   authoring the application, which proves nothing about the agent. This is the
+   first evaluation where `--llm api` is not optional.
 
 ## What Worked Well
 
@@ -1194,6 +1228,7 @@ checkout of exactly the files git tracks, with a fresh virtualenv.
 | README with setup instructions, architecture overview, design decisions | Verified by following it literally in a clean checkout |
 | A sample spec file the agent consumes | `specs/examples/product-search.md`, `book-inventory.md`, `specs/car-inventory.md` |
 | A sample output directory (a generated app we can run) | `generated-app/` — generated by SAGE, runs with `npm install && npm run dev` |
+| The boilerplate the agent generates into | `boilerplate/` — **written by us**, from the assessment's description, because the official one was never supplied |
 | `.env.example` listing required keys, without secrets | Every `SAGE_*` variable it lists is read by `sage/config.py`; no values. The `LANGSMITH_*` entries are annotated as SDK-consumed and unverified |
 | Which LLM(s) you used and why | README *Which model was used, and why* — **none was called**, stated plainly |
 | Agent architecture, diagram welcome | *Architecture* and *Agent Workflow* above |
@@ -1203,15 +1238,18 @@ checkout of exactly the files git tracks, with a fresh virtualenv.
 | We may modify the spec slightly to test generalization | Milestone 6: an unrelated domain through byte-identical SAGE |
 | `docs/project.pdf` preserved | Unmodified |
 
-Two requirements are not met, both for the same reason:
+Outstanding, and why:
 
-- **Milestone 5, the official Car Inventory application, was not generated.** It
-  needs the boilerplate's Apollo client, MSW GraphQL mock, `GetCars` query,
-  `Car` type and five seed cars. That boilerplate is "provided separately" per
-  the assessment and is not in this workspace.
-- **The sample output was therefore generated into a minimal harness**, not into
-  the official boilerplate. `generated-app/README.md` says so in its own caveat
-  section rather than letting the directory imply otherwise.
+- **The Car Inventory application has not been generated.** The stack it needs
+  now exists in `boilerplate/`, so this is remaining work rather than a
+  blocker — but it is the first evaluation that genuinely wants `--llm api`
+  rather than a hand-authored transcript.
+- **Everything involving a boilerplate is measured against a reconstruction.**
+  The official repository was never supplied. `boilerplate/README.md` opens with
+  that statement rather than letting the directory imply otherwise.
+- **The sample output in `generated-app/` was generated into the minimal
+  harness**, not into `boilerplate/`, because that is the run the committed
+  cassettes reproduce.
 
 ## Git and Release Conventions
 
@@ -1246,6 +1284,8 @@ git push -u origin main --follow-tags
 │   ├── car-inventory.md          official evaluation, not yet run
 │   └── examples/{product-search,book-inventory}.md
 ├── prompts/                      milestone prompts for the coding agent
+├── boilerplate/                  target project: React 19, Apollo, MSW, MUI,
+│                                 Vitest. Written by us, not the assessment's
 ├── scripts/reset-fixture.sh      restores the fixture before recording
 ├── sage/                         the agent
 │   ├── __main__.py               CLI

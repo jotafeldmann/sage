@@ -43,13 +43,21 @@ server renders the three products with working case-insensitive search and the
 
 ## An important caveat about the starting project
 
-The assessment's official boilerplate — React 19 with Apollo Client, MUI and
-MSW — is listed in `docs/project.pdf` as "provided separately" and was not
-available in this workspace. It was deliberately **not** reconstructed.
+This sample was generated into [`../fixtures/test-app/`](../fixtures/test-app/),
+a deliberately minimal React + TypeScript + Vitest harness — no Apollo, no MSW,
+no MUI. That is the project the committed cassette reproduces.
 
-The project SAGE generated into here is therefore a copy of
-[`../fixtures/test-app/`](../fixtures/test-app/), a minimal React + TypeScript +
-Vitest harness. **It is not the assessment boilerplate.** SAGE discovers a target
-project's scripts, libraries and layout at runtime rather than assuming any of
-them, so pointing `--target-dir` at the real boilerplate is expected to require
-no SAGE change — but that expectation is untested until the boilerplate exists.
+It is **not** the assessment's boilerplate. The official repository — React 19
+with Apollo Client, MUI and MSW — is listed in `docs/project.pdf` as "provided
+separately" and was never supplied.
+
+A replacement with that fuller stack now exists at
+[`../boilerplate/`](../boilerplate/), also written by this project rather than
+supplied by the assessment. This sample predates it and was not regenerated,
+because the cassette that produced it — and the tests that replay it — target
+the minimal harness.
+
+SAGE discovers a target project's scripts, libraries and layout at runtime
+rather than assuming any of them, so generating into either project, or into the
+official repository if it arrives, is a `--target-dir` change rather than a code
+change.

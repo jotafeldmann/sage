@@ -8,37 +8,35 @@ The original take-home assessment is preserved at [`docs/project.pdf`](docs/proj
 
 ---
 
-> ### ⚠️ The assessment boilerplate was not available
+> ### ⚠️ The boilerplate here is ours, not the assessment's
 >
 > `docs/project.pdf` lists the pre-built application repository — React 19 with
 > Apollo Client, MUI and MSW — under **"Repository: Provided separately"**. It
-> was not supplied with this workspace and is not in it.
+> was never supplied with this workspace.
 >
-> **It was deliberately not downloaded, guessed at, or reconstructed.** A
-> lookalike would differ from the real thing in ways that only surface as
-> mystery failures later, and generating into it would prove nothing about the
-> repository the agent is actually meant to work on.
+> **[`boilerplate/`](boilerplate/) is therefore a boilerplate we wrote**, built
+> from the assessment's written description: React 19, TypeScript, Vite, Apollo
+> Client against an MSW-mocked GraphQL API, Material UI, and Vitest with
+> Testing Library, including the documented `Car` type, five seed cars, and the
+> `GetCars`, `GetCar` and `AddCar` operations.
 >
-> Two consequences, both visible in this repository:
+> It is a **good-faith reconstruction from a description, not a copy.** File
+> layout, seed values, schema shape and naming are our choices and will differ
+> from the real repository in ways we cannot know. Nothing here should be read
+> as the official boilerplate, and no result obtained against it is a result
+> against the real one.
 >
-> 1. **The Car Inventory application was not generated** (Milestone 5). It
->    needs that boilerplate's `GetCars` query, `Car` type, MSW mock layer and
->    five seed cars. Nothing on SAGE's side is missing — the input is.
-> 2. **The sample output in [`generated-app/`](generated-app/) was generated
->    into a minimal React + TypeScript harness instead**, which is
->    [`fixtures/test-app/`](fixtures/test-app/) and is **not** the boilerplate.
->
-> SAGE was built so this is a swap, not a rewrite: it discovers a target
+> If the official repository arrives, prefer it. SAGE discovers a target
 > project's scripts, libraries and layout at runtime rather than assuming any of
-> them, so pointing `--target-dir` at the real repository is expected to need no
-> code change. [Milestone 6](docs/extras.md#milestone-6-generalization--passed)
-> is the evidence — an unrelated domain ran through byte-identical SAGE — but
-> the expectation stays **untested against the real boilerplate** until it
-> exists.
+> them, so switching is a `--target-dir` change rather than a code change.
+> [Milestone 6](docs/extras.md#milestone-6-generalization--passed) is the
+> evidence that this holds across projects it was not built for — and our
+> boilerplate is now a second data point, since SAGE's probe identified its
+> Apollo/MSW/MUI stack with no modification.
 
 ---
 
-**Status: Milestones 1–4, 6 and 7 complete.** Milestone 5 is blocked on the boilerplate above. The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
+**Status: Milestones 1–4, 6 and 7 complete.** Milestone 5 (the Car Inventory run) is now unblocked but not yet done. The full `analyze → plan → generate → validate → repair` loop runs end to end. See [Current limitations](#current-limitations).
 
 ## How to Run
 
@@ -58,7 +56,13 @@ cp .env.example .env
 python -m sage specs/examples/product-search.md --target-dir fixtures/test-app
 ```
 
-SAGE writes only inside `--target-dir`. That directory must already be a project it can inspect; SAGE does not scaffold one.
+SAGE writes only inside `--target-dir`. That directory must already be a project
+it can inspect; SAGE does not scaffold one. Two targets are available:
+
+| Target | What it is |
+|---|---|
+| [`boilerplate/`](boilerplate/) | The full assessment stack — Apollo, MSW GraphQL mock, MUI, the `Car` type and five seed cars. Written by us, see the notice above. |
+| [`fixtures/test-app/`](fixtures/test-app/) | A deliberately minimal React + TypeScript harness, used by the recorded runs. |
 
 ### Model providers
 
@@ -144,11 +148,11 @@ asks for anyway and what makes a recorded run replayable at zero cost.
 
 ## Current limitations
 
-- **The assessment boilerplate is absent** — see the notice at the top. This is
-  the one limitation that no further work here can remove.
-- **The Car Inventory application (Milestone 5) was not generated**, for that
-  reason. Milestone 6 was run instead: an unrelated domain through
-  byte-identical SAGE code and prompts.
+- **The boilerplate is ours, not the assessment's** — see the notice at the top.
+  Every result obtained against it is a result against a reconstruction.
+- **The Car Inventory application (Milestone 5) has not been generated yet.**
+  The boilerplate it needs now exists, so this is remaining work rather than a
+  blocker.
 - **No LLM provider was ever called.** Every recorded run was hand-authored
   through `manual` mode, so nothing here demonstrates model behaviour and no
   token or cost figures are reported. See
@@ -156,9 +160,9 @@ asks for anyway and what makes a recorded run replayable at zero cost.
 - **A task cannot see the rendered output of a component it tests**, only that
   component's exported signatures. The
   [`product-search-repair`](fixtures/cassettes/product-search-repair/) cassette
-  reproduces exactly this: the test guesses a query selector, validation
-  catches it, and repair fixes it. Letting validation catch it may be correct,
-  but it is a choice rather than a solved problem.
+  reproduces exactly this: the test guesses a query selector, validation catches
+  it, and repair fixes it. Letting validation catch it may be correct, but it is
+  a choice rather than a solved problem.
 - **`npm install` runs only when `node_modules` is missing.** SAGE does not
   detect a stale or partial install.
 

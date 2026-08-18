@@ -10,6 +10,8 @@ __pycache__/
 # Keep generated source as submission evidence, but not installed dependencies/build output.
 generated-app/node_modules/
 generated-app/dist/
+boilerplate/node_modules/
+boilerplate/dist/
 fixtures/test-app/node_modules/
 fixtures/test-app/dist/
 node_modules/
