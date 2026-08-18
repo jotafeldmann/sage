@@ -4,13 +4,12 @@ You are implementing **Milestone 1 only** of SAGE.
 
 Before making changes, read these files in this order:
 
-1. `docs/project.pdf`
 2. `SPEC.md`
 3. `README.md`
 4. `docs/extras.md`
 5. `specs/examples/product-search.md`
 
-The PDF is the canonical source of truth for the take-home assessment. `SPEC.md` translates it into the SAGE implementation plan.
+`SPEC.md` is the source of truth: it records the take-home assessment's requirements and the implementation plan for SAGE.
 
 ## Objective
 
@@ -76,4 +75,4 @@ Do not spend time on:
 - CI/CD;
 - sophisticated UI for SAGE.
 
-If you discover a conflict or ambiguity, consult `docs/project.pdf` before assuming.
+If you discover a conflict or ambiguity, consult `SPEC.md` and `specs/` before assuming.

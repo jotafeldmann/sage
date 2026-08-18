@@ -6,7 +6,7 @@ while the official assessment boilerplate is unavailable.
 It is **not**:
 
 - the assessment's pre-built boilerplate (React 19, Vite, Apollo Client, MUI,
-  MSW, Vitest — "provided separately" per `docs/project.pdf`);
+  MSW, Vitest), which was provided separately and never supplied;
 - a reconstruction or substitute for it;
 - the submission's `generated-app/` output directory.
 

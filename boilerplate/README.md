@@ -2,8 +2,8 @@
 
 > ### This boilerplate was written for this project. It is **not** the assessment's.
 >
-> `docs/project.pdf` describes a pre-built repository provided separately by the
-> assessment owner. That repository was never supplied, so this one was written
+> The assessment described a pre-built repository, provided separately by its
+> owner. That repository was never supplied, so this one was written
 > to stand in its place, matching the stack the assessment documents.
 >
 > It is a **good-faith reconstruction from the assessment's description, not a

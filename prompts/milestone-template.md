@@ -4,7 +4,6 @@ Replace `N` with the milestone requested from `SPEC.md`.
 
 Before making changes, read:
 
-1. `docs/project.pdf`
 2. `SPEC.md`
 3. the current implementation
 4. `README.md`
@@ -48,4 +47,4 @@ Do not invent metrics, cost values, or success claims.
 
 ## Source of truth
 
-If `SPEC.md` conflicts with the original take-home assessment, `docs/project.pdf` wins.
+`SPEC.md` records the original take-home assessment and is authoritative.

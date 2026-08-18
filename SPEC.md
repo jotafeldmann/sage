@@ -2,28 +2,24 @@
 
 ## 0. Authority and Source of Truth
 
-The original project requirements are preserved at:
-
-```text
-docs/project.pdf
-```
-
-`docs/project.pdf` is the canonical source of truth for the take-home assessment requirements.
-
-This specification translates the assessment into an actionable implementation plan for SAGE. It also introduces SAGE-specific engineering decisions where the assessment deliberately leaves implementation choices open.
-
-If an implementation agent encounters ambiguity, missing context, a required-vs-optional question, a submission question, an evaluation question, or a conflict between this file and the assessment, it must consult `docs/project.pdf` before making an assumption.
+This file is the source of truth for what SAGE must do. Section 3 records the
+requirements the take-home assessment set out; the rest of this document
+translates them into an actionable implementation specification and records the
+engineering decisions taken where the assessment left a choice open.
 
 ### Source precedence
 
-1. `docs/project.pdf` - original assessment requirements.
-2. `SPEC.md` - SAGE implementation specification and chosen engineering decisions.
-3. `docs/extras.md` - supporting architecture notes, references, tradeoffs, evaluation results, metrics, and retrospective notes.
-4. Implementation assumptions - only when the sources above do not define the behavior.
+1. `SPEC.md` - this file: SAGE's requirements and chosen engineering decisions.
+2. `docs/extras.md` - supporting architecture notes, tradeoffs, evaluation
+   results, metrics, and retrospective notes.
+3. Implementation assumptions - only when the sources above do not define the
+   behavior.
 
-If this specification contradicts `docs/project.pdf` on an assessment requirement, the PDF wins.
+Where the assessment left something ambiguous, make a reasonable engineering
+assumption and record it in `docs/extras.md`.
 
-Do not silently change assessment requirements to fit the current implementation. When the assessment leaves something ambiguous, make a reasonable engineering assumption and record it in `docs/extras.md`.
+A requirement that is not written down here or in `specs/` is not recoverable.
+Treat both as the record rather than as a summary of one.
 
 ## 1. Product
 
@@ -55,7 +51,7 @@ SAGE must autonomously:
 9. stop safely when retry limits are reached;
 10. leave a runnable output project and observable execution result.
 
-## 3. Assessment Requirements Captured from `docs/project.pdf`
+## 3. Assessment Requirements Captured from the Original Assessment
 
 The assessment requires an agentic workflow rather than a manually implemented car application.
 
@@ -76,7 +72,7 @@ The reference generated application is a Car Inventory Manager. Its required and
 
 ## 4. SAGE Design Decisions
 
-The following are SAGE decisions, not requirements imposed by the assessment unless also stated in `docs/project.pdf`.
+The following are SAGE decisions, not requirements imposed by the assessment unless also recorded in section 3.
 
 ### 4.1 Workflow framework
 
@@ -477,7 +473,7 @@ File: `specs/car-inventory.md`
 
 Purpose:
 
-- evaluate the application requirements described in `docs/project.pdf`.
+- evaluate the application requirements captured in `specs/car-inventory.md`.
 
 ### Evaluation D: Unseen/generalization spec
 
@@ -570,7 +566,6 @@ Definition of done:
 
 - agent source code is present;
 - README setup instructions are accurate;
-- `docs/project.pdf` is preserved;
 - `.env.example` lists required API/config keys without secrets;
 - sample input specification is present;
 - sample generated output directory is present;
@@ -629,7 +624,6 @@ The exact implementation layout may evolve, but the initial target is:
 ├── SPEC.md
 ├── .env.example
 ├── docs/
-│   ├── project.pdf
 │   └── extras.md
 ├── specs/
 │   ├── car-inventory.md

@@ -4,18 +4,18 @@
 
 SAGE is a small agentic spec-to-code workflow that takes a natural-language software specification, inspects an existing application repository, plans the work, generates or edits code, validates the result with the project's own tooling, and attempts bounded repairs when validation fails.
 
-The original take-home assessment is preserved at [`docs/project.pdf`](docs/project.pdf). It is the canonical source of truth for assessment requirements. [`SPEC.md`](SPEC.md) translates those requirements into an actionable implementation specification for SAGE.
+[`SPEC.md`](SPEC.md) is the source of truth for what SAGE must do: architecture, constraints, security boundaries, milestones and success criteria. [`specs/`](specs/) holds the application specifications SAGE consumes as input.
 
 ---
 
 > ### ⚠️ The boilerplate here is ours, not the assessment's
 >
-> `docs/project.pdf` lists the pre-built application repository — React 19 with
-> Apollo Client, MUI and MSW — under **"Repository: Provided separately"**. It
-> was never supplied with this workspace.
+> The assessment listed the pre-built application repository — React 19 with
+> Apollo Client, MUI and MSW — as provided separately. It was never supplied
+> with this workspace.
 >
 > **[`boilerplate/`](boilerplate/) is therefore a boilerplate we wrote**, built
-> from the assessment's written description: React 19, TypeScript, Vite, Apollo
+> from the assessment's written description as recorded in [`SPEC.md`](SPEC.md): React 19, TypeScript, Vite, Apollo
 > Client against an MSW-mocked GraphQL API, Material UI, and Vitest with
 > Testing Library, including the documented `Car` type, five seed cars, and the
 > `GetCars`, `GetCar` and `AddCar` operations.
@@ -124,7 +124,7 @@ footnote:
 To run against a real provider, set `SAGE_API_KEY`, `SAGE_API_BASE_URL` and
 `SAGE_MODEL` and pass `--llm api`. The client is `langchain-openai`, so any
 OpenAI-compatible endpoint works — OpenAI, OpenRouter, or Google's
-OpenAI-compatible Gemini endpoint, all three of which `docs/project.pdf`
+OpenAI-compatible Gemini endpoint, all three of which the assessment
 suggests. The provider is configuration, not code: nothing in `sage/` names a
 model or a vendor.
 

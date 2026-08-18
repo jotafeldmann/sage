@@ -48,8 +48,7 @@ a deliberately minimal React + TypeScript + Vitest harness — no Apollo, no MSW
 no MUI. That is the project the committed cassette reproduces.
 
 It is **not** the assessment's boilerplate. The official repository — React 19
-with Apollo Client, MUI and MSW — is listed in `docs/project.pdf` as "provided
-separately" and was never supplied.
+with Apollo Client, MUI and MSW — was provided separately and never supplied.
 
 A replacement with that fuller stack now exists at
 [`../boilerplate/`](../boilerplate/), also written by this project rather than

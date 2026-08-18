@@ -2,7 +2,7 @@
 
 This page contains the detailed engineering notes for SAGE. Keep the README short and use this page for depth.
 
-The canonical assessment remains [`project.pdf`](project.pdf). Do not use this page to silently redefine assessment requirements.
+[`../SPEC.md`](../SPEC.md) records the assessment's requirements and is the source of truth. Do not use this page to silently redefine them.
 
 ## Assessment Alignment
 
@@ -78,10 +78,20 @@ SAGE does not need to adopt OpenSpec itself for this take-home. It borrows the d
 
 ## External Dependencies and Known Limitations
 
+### The requirements are recorded, not referenced
+
+`SPEC.md` section 3 records what the assessment asked for, and `specs/` holds
+the application specifications. Neither is a pointer to a source document held
+elsewhere: they are the record.
+
+The practical consequence is that anything the assessment required which was
+never written into `SPEC.md` or `specs/` is not recoverable from this
+repository. Both should be read as authoritative rather than as a summary.
+
 ### The boilerplate is a reconstruction, not the assessment's
 
-`docs/project.pdf` lists the boilerplate under **"Repository: Provided
-separately"**. It was never supplied with this workspace.
+The assessment listed the boilerplate as **provided separately**. It was never
+supplied with this workspace.
 
 For most of this project's history that was treated as a hard blocker, and
 `boilerplate/` did not exist: the reasoning was that a lookalike differs from
@@ -680,7 +690,7 @@ Spec: `../specs/car-inventory.md`
 
 Goal:
 
-- satisfy required generated-application behavior from `project.pdf`;
+- satisfy required generated-application behavior as recorded in `SPEC.md`;
 - preserve the generated application as the submission sample output.
 
 ### Evaluation 4: Generalization
@@ -1200,7 +1210,7 @@ via `langchain-openai`.
 
 **Why not commit to one vendor:**
 
-- `docs/project.pdf` explicitly leaves the provider open and names Anthropic,
+- the assessment explicitly leaves the provider open and names Anthropic,
   OpenAI, Gemini's OpenAI-compatible endpoint and OpenRouter as acceptable;
 - the assessment says it will run the agent with its own keys, so hardcoding a
   vendor would make the submission harder to evaluate, not easier;
@@ -1219,7 +1229,8 @@ the whole loop unverifiable here.
 
 ## Submission Checklist
 
-Verified against `docs/project.pdf`'s submission requirements from a clean
+Verified against the assessment's submission requirements, as recorded in
+`SPEC.md`, from a clean
 checkout of exactly the files git tracks, with a fresh virtualenv.
 
 | Requirement | Status |
@@ -1236,7 +1247,6 @@ checkout of exactly the files git tracks, with a fresh virtualenv.
 | Approximate cost per run | *Average Cost Per Run* — measured characters, **no invented cost** |
 | Working demo: run the agent with the sample spec, output compiles and runs | `--llm replay` reproduces a full run with no key; output passes typecheck, tests, build, and renders in a browser |
 | We may modify the spec slightly to test generalization | Milestone 6: an unrelated domain through byte-identical SAGE |
-| `docs/project.pdf` preserved | Unmodified |
 
 Outstanding, and why:
 
@@ -1278,7 +1288,6 @@ git push -u origin main --follow-tags
 ├── pyproject.toml                Python 3.12, uv, ruff, pytest
 ├── .env.example                  required config keys, no secrets
 ├── docs/
-│   ├── project.pdf               canonical assessment (unmodified)
 │   └── extras.md                 this page
 ├── specs/                        application specifications (SAGE inputs)
 │   ├── car-inventory.md          official evaluation, not yet run

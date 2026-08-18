@@ -4,7 +4,7 @@
 
 Build a working Car Inventory Manager inside the existing assessment boilerplate.
 
-This file is an application specification intended to be consumed by SAGE. The original assessment at `docs/project.pdf` remains authoritative if this file is ambiguous or incomplete.
+This file is an application specification intended to be consumed by SAGE. `SPEC.md` records the original assessment and remains authoritative if this file is ambiguous or incomplete.
 
 ## Required Requirements
 

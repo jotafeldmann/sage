@@ -2,8 +2,8 @@
 
 This pack is intended to be dropped into the repository that contains the take-home boilerplate.
 
-> **That did not happen for this submission.** The boilerplate is listed in
-> `docs/project.pdf` as "provided separately" and was never supplied. A
+> **That did not happen for this submission.** The assessment listed the boilerplate
+> as "provided separately" and it was never supplied. A
 > replacement was written instead and lives in [`boilerplate/`](boilerplate/) —
 > built from the assessment's description, clearly labelled as ours, and not to
 > be mistaken for the official repository. See the notice at the top of
@@ -12,7 +12,6 @@ This pack is intended to be dropped into the repository that contains the take-h
 
 ## Files and roles
 
-- `docs/project.pdf` - original assessment and canonical requirement source.
 - `SPEC.md` - implementation contract for SAGE.
 - `README.md` - short evaluator-facing entry point.
 - `docs/extras.md` - central detailed engineering documentation.
