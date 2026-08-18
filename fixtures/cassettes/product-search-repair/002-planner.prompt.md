@@ -35,8 +35,8 @@ Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/u
 Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
-Existing test files: src/ProductSearch.test.tsx
-Total source files: 12
+Existing test files: none
+Total source files: 9
 
 ### Analysis of this codebase
 

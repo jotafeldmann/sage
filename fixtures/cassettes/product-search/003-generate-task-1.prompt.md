@@ -26,7 +26,7 @@ Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: none
-Total source files: 11
+Total source files: 9
 
 ### Conventions this codebase follows
 
@@ -62,28 +62,6 @@ Display these three products:
 
 The data may be local for this evaluation.
 
-### PRODUCT-REQ-002 - Search
-
-Provide a search input that filters products by name.
-
-Search should be case-insensitive.
-
-### PRODUCT-REQ-003 - Empty state
-
-When no products match the search, display:
-
-```text
-No products found
-```
-
-### PRODUCT-REQ-004 - Tests
-
-Add automated tests covering at least:
-
-- products are visible initially;
-- searching narrows the visible products;
-- a search with no matches displays the empty state.
-
 ## Constraints
 
 - Reuse the existing project structure.
@@ -107,6 +85,12 @@ The evaluation passes when:
 
 Nothing this task depends on has been implemented yet.
 
+### Exports available from the work this task depends on
+
+Import from these. Do not guess at names or shapes that are not listed.
+
+This task has no dependencies.
+
 ## Your task (1/4)
 
 Create the product data module in src/, exporting a Product type and the three seed products as a local dataset. No API client exists, so the data is defined in the module itself.
@@ -116,20 +100,7 @@ Files this task is expected to create or modify:
 
 ## Existing file contents
 
-### src/products.ts
-```
-export interface Product {
-  id: string;
-  name: string;
-}
-
-export const products: Product[] = [
-  { id: "1", name: "Keyboard" },
-  { id: "2", name: "Monitor" },
-  { id: "3", name: "Mouse" },
-];
-
-```
+None of the files for this task exist yet. Create them.
 
 ## Rules
 

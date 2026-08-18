@@ -36,7 +36,7 @@ Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: none
-Total source files: 11
+Total source files: 9
 
 ### Analysis of this codebase
 

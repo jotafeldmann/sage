@@ -24,6 +24,12 @@ only libraries the project already has.
 
 {{COMPLETED_WORK}}
 
+### Exports available from the work this task depends on
+
+Import from these. Do not guess at names or shapes that are not listed.
+
+{{DEPENDENCY_EXPORTS}}
+
 ## Your task ({{TASK_POSITION}})
 
 {{TASK_DESCRIPTION}}

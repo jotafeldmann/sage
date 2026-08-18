@@ -25,8 +25,8 @@ Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/u
 Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
-Existing test files: src/ProductSearch.test.tsx
-Total source files: 12
+Existing test files: none
+Total source files: 11
 
 ### Conventions this codebase follows
 
@@ -62,28 +62,6 @@ Display these three products:
 
 The data may be local for this evaluation.
 
-### PRODUCT-REQ-002 - Search
-
-Provide a search input that filters products by name.
-
-Search should be case-insensitive.
-
-### PRODUCT-REQ-003 - Empty state
-
-When no products match the search, display:
-
-```text
-No products found
-```
-
-### PRODUCT-REQ-004 - Tests
-
-Add automated tests covering at least:
-
-- products are visible initially;
-- searching narrows the visible products;
-- a search with no matches displays the empty state.
-
 ## Constraints
 
 - Reuse the existing project structure.
@@ -106,6 +84,13 @@ The evaluation passes when:
 ## Work already completed
 
 - task-2: Added ProductSearch: a labelled search input filtering products case-insensitively, with the 'No products found' empty state. (src/ProductSearch.tsx)
+
+### Exports available from the work this task depends on
+
+Import from these. Do not guess at names or shapes that are not listed.
+
+src/ProductSearch.tsx exports:
+  function ProductSearch()
 
 ## Your task (3/4)
 

@@ -52,30 +52,6 @@ Build the feature inside the existing React + TypeScript application structure.
 
 ## Requirements
 
-### PRODUCT-REQ-001 - Seed products
-
-Display these three products:
-
-- Keyboard
-- Monitor
-- Mouse
-
-The data may be local for this evaluation.
-
-### PRODUCT-REQ-002 - Search
-
-Provide a search input that filters products by name.
-
-Search should be case-insensitive.
-
-### PRODUCT-REQ-003 - Empty state
-
-When no products match the search, display:
-
-```text
-No products found
-```
-
 ### PRODUCT-REQ-004 - Tests
 
 Add automated tests covering at least:
@@ -106,6 +82,13 @@ The evaluation passes when:
 ## Work already completed
 
 - task-2: Added ProductSearch: a labelled search input filtering products case-insensitively, with the 'No products found' empty state. (src/ProductSearch.tsx)
+
+### Exports available from the work this task depends on
+
+Import from these. Do not guess at names or shapes that are not listed.
+
+src/ProductSearch.tsx exports:
+  function ProductSearch()
 
 ## Your task (4/4)
 

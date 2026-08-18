@@ -32,7 +32,7 @@ Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: none
-Total source files: 11
+Total source files: 9
 
 ## Sample of the project's most significant files
 
@@ -104,63 +104,6 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
   },
 });
-
-```
-
-### src/ProductSearch.tsx
-```
-import { useMemo, useState } from "react";
-
-import { products } from "./products";
-
-export function ProductSearch() {
-  const [query, setQuery] = useState("");
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) {
-      return products;
-    }
-    return products.filter((product) => product.name.toLowerCase().includes(needle));
-  }, [query]);
-
-  return (
-    <section>
-      <label htmlFor="product-search">Search products</label>
-      <input
-        id="product-search"
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-
-      {visible.length === 0 ? (
-        <p>No products found</p>
-      ) : (
-        <ul>
-          {visible.map((product) => (
-            <li key={product.id}>{product.name}</li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-```
-
-### src/products.ts
-```
-export interface Product {
-  id: string;
-  name: string;
-}
-
-export const products: Product[] = [
-  { id: "1", name: "Keyboard" },
-  { id: "2", name: "Monitor" },
-  { id: "3", name: "Mouse" },
-];
 
 ```
 

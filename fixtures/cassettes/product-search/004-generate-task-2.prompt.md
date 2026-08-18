@@ -26,7 +26,7 @@ Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
 Existing test files: none
-Total source files: 11
+Total source files: 10
 
 ### Conventions this codebase follows
 
@@ -76,14 +76,6 @@ When no products match the search, display:
 No products found
 ```
 
-### PRODUCT-REQ-004 - Tests
-
-Add automated tests covering at least:
-
-- products are visible initially;
-- searching narrows the visible products;
-- a search with no matches displays the empty state.
-
 ## Constraints
 
 - Reuse the existing project structure.
@@ -107,6 +99,14 @@ The evaluation passes when:
 
 - task-1: Added the Product type and the three seed products as a local module with named exports. (src/products.ts)
 
+### Exports available from the work this task depends on
+
+Import from these. Do not guess at names or shapes that are not listed.
+
+src/products.ts exports:
+  interface Product
+  const products: Product[]
+
 ## Your task (2/4)
 
 Create src/ProductSearch.tsx as a named-export function component: a controlled search input that filters the products by name case-insensitively, renders the matches, and renders the empty state when none match.
@@ -116,47 +116,7 @@ Files this task is expected to create or modify:
 
 ## Existing file contents
 
-### src/ProductSearch.tsx
-```
-import { useMemo, useState } from "react";
-
-import { products } from "./products";
-
-export function ProductSearch() {
-  const [query, setQuery] = useState("");
-
-  const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) {
-      return products;
-    }
-    return products.filter((product) => product.name.toLowerCase().includes(needle));
-  }, [query]);
-
-  return (
-    <section>
-      <label htmlFor="product-search">Search products</label>
-      <input
-        id="product-search"
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-
-      {visible.length === 0 ? (
-        <p>No products found</p>
-      ) : (
-        <ul>
-          {visible.map((product) => (
-            <li key={product.id}>{product.name}</li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-```
+None of the files for this task exist yet. Create them.
 
 ## Rules
 

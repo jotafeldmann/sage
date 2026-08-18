@@ -25,8 +25,8 @@ Libraries: @testing-library/jest-dom, @testing-library/react, @testing-library/u
 Source directories: src
 Entry points: src/App.tsx, src/main.tsx
 Config files: tsconfig.json, vite.config.ts
-Existing test files: src/ProductSearch.test.tsx
-Total source files: 12
+Existing test files: none
+Total source files: 11
 
 ### Conventions this codebase follows
 
@@ -51,30 +51,6 @@ This is the smallest end-to-end evaluation specification for SAGE. It is intenti
 Build the feature inside the existing React + TypeScript application structure.
 
 ## Requirements
-
-### PRODUCT-REQ-001 - Seed products
-
-Display these three products:
-
-- Keyboard
-- Monitor
-- Mouse
-
-The data may be local for this evaluation.
-
-### PRODUCT-REQ-002 - Search
-
-Provide a search input that filters products by name.
-
-Search should be case-insensitive.
-
-### PRODUCT-REQ-003 - Empty state
-
-When no products match the search, display:
-
-```text
-No products found
-```
 
 ### PRODUCT-REQ-004 - Tests
 
@@ -107,6 +83,13 @@ The evaluation passes when:
 
 - task-2: Added ProductSearch: a labelled search input filtering products case-insensitively, with the 'No products found' empty state. (src/ProductSearch.tsx)
 
+### Exports available from the work this task depends on
+
+Import from these. Do not guess at names or shapes that are not listed.
+
+src/ProductSearch.tsx exports:
+  function ProductSearch()
+
 ## Your task (4/4)
 
 Add co-located tests at src/ProductSearch.test.tsx using the configured Vitest globals, React Testing Library and user-event, covering initial visibility, case-insensitive narrowing, and the empty state.
@@ -116,41 +99,7 @@ Files this task is expected to create or modify:
 
 ## Existing file contents
 
-### src/ProductSearch.test.tsx
-```
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-
-import { ProductSearch } from "./ProductSearch";
-
-describe("ProductSearch", () => {
-  it("shows every product initially", () => {
-    render(<ProductSearch />);
-
-    expect(screen.getByText("Keyboard")).toBeInTheDocument();
-    expect(screen.getByText("Monitor")).toBeInTheDocument();
-    expect(screen.getByText("Mouse")).toBeInTheDocument();
-  });
-
-  it("narrows the visible products as you search", async () => {
-    render(<ProductSearch />);
-
-    await userEvent.type(screen.getByPlaceholderText("Search products"), "monit");
-
-    expect(screen.getByText("Monitor")).toBeInTheDocument();
-    expect(screen.queryByText("Keyboard")).not.toBeInTheDocument();
-  });
-
-  it("shows the empty state when nothing matches", async () => {
-    render(<ProductSearch />);
-
-    await userEvent.type(screen.getByPlaceholderText("Search products"), "zzz");
-
-    expect(screen.getByText("No products found")).toBeInTheDocument();
-  });
-});
-
-```
+None of the files for this task exist yet. Create them.
 
 ## Rules
 

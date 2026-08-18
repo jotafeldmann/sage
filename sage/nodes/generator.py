@@ -16,6 +16,8 @@ from sage.llm.structured import complete_structured
 from sage.schemas.changes import GenerationResult
 from sage.state import SageState
 from sage.tools.filesystem import WorkspaceError
+from sage.tools.requirements import slice_for_requirements
+from sage.tools.signatures import describe_module
 
 CHANGES_SCHEMA = """{
   "changes": [
@@ -42,7 +44,8 @@ def generator_node(state: SageState, deps: Deps) -> dict:
         "generator",
         project_summary=deps.project.to_prompt_summary(),
         conventions=_conventions(state),
-        spec=state["spec"],
+        spec=slice_for_requirements(state["spec"], task.get("requirements") or []),
+        dependency_exports=_dependency_exports(deps, state, task),
         completed_work=_completed_work(state, task),
         task_position=position,
         task_description=task["description"],
@@ -98,6 +101,34 @@ def _conventions(state: SageState) -> str:
     if not items:
         return "No conventions were identified; follow the style of the files shown below."
     return "\n".join(f"- {item}" for item in items)
+
+
+def _dependency_exports(deps: Deps, state: SageState, task: dict) -> str:
+    """The public surface of the modules this task builds on.
+
+    A one-line summary says what a dependency does; it does not say what it
+    exports. Without this a task consuming another task's module has to guess
+    the API, which is exactly how the recorded Milestone 1 run first failed.
+    Sending signatures rather than whole files keeps the fix inside the context
+    budget.
+    """
+    depends_on = set(task.get("depends_on") or [])
+    if not depends_on:
+        return "This task has no dependencies."
+
+    paths: list[str] = []
+    for item in state.get("task_summaries") or []:
+        if item["id"] in depends_on:
+            paths.extend(path for path in item["files"] if path not in paths)
+
+    described = [
+        rendered
+        for path, contents in deps.fs.read_many(paths).items()
+        if (rendered := describe_module(path, contents))
+    ]
+    if not described:
+        return "The modules this task depends on export nothing importable."
+    return "\n\n".join(described)
 
 
 def _completed_work(state: SageState, task: dict) -> str:
