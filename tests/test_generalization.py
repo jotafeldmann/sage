@@ -75,3 +75,24 @@ def test_validation_commands_are_discovered_not_hardcoded() -> None:
 
     # With nothing defined by the target, nothing is runnable.
     assert all(not runner.can_run(script) for script in VALIDATION_SCRIPT_PREFERENCE)
+
+
+def test_the_cassettes_cover_more_than_one_domain() -> None:
+    """Generalization is only demonstrated if a second domain was actually run."""
+    cassettes = SAGE_ROOT.parent / "fixtures/cassettes"
+    recorded = {path.name for path in cassettes.iterdir() if path.is_dir()}
+
+    assert "product-search" in recorded
+    assert "book-inventory" in recorded
+
+
+def test_the_evaluation_specs_share_no_vocabulary_with_sage() -> None:
+    """Every requirement id SAGE has been run against is absent from its code."""
+    from sage.tools.requirements import requirement_ids
+
+    specs = SAGE_ROOT.parent / "specs"
+    sources = "\n".join(path.read_text() for path in _sage_sources())
+
+    for spec in specs.rglob("*.md"):
+        for rid in requirement_ids(spec.read_text()):
+            assert rid not in sources, f"{rid} from {spec.name} leaked into SAGE core"

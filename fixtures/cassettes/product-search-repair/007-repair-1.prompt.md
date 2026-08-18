@@ -47,8 +47,8 @@ Tests: 1 passed, 2 failed, of 3
 sage/fixtures/test-app
 
  ❯ src/ProductSearch.test.tsx (3 tests | 2 failed) 24ms
-   ✓ ProductSearch > shows every product initially 15ms
-   × ProductSearch > narrows the visible products as you search 6ms
+   ✓ ProductSearch > shows every product initially 16ms
+   × ProductSearch > narrows the visible products as you search 5ms
      → Unable to find an element with the placeholder text of: Search products
 
 Ignored nodes: comments, script, style
@@ -113,8 +113,8 @@ Ignored nodes: comments, script, style
 
  Test Files  1 failed (1)
       Tests  2 failed | 1 passed (3)
-   Start at  21:48:36
-   Duration  435ms (transform 32ms, setup 29ms, collect 58ms, tests 24ms, environment 163ms, prepare 40ms)
+   Start at  22:02:22
+   Duration  446ms (transform 33ms, setup 28ms, collect 62ms, tests 24ms, environment 158ms, prepare 33ms)
 
 
 

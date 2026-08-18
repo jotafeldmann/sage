@@ -1,0 +1,61 @@
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "description": "Create src/books.ts exporting a Book type with title, author, publicationYear and category, plus a small local dataset. The analysis confirms there is no data layer, so the dataset is defined in the module.",
+      "files": [
+        "src/books.ts"
+      ],
+      "depends_on": [],
+      "requirements": [
+        "BOOK-REQ-001"
+      ],
+      "priority": "required"
+    },
+    {
+      "id": "task-2",
+      "description": "Create src/BookInventory.tsx as a named-export function component rendering each book's title, author, publication year and category, with a case-insensitive title search, a control to sort by publication year, and an empty state when the filter matches nothing.",
+      "files": [
+        "src/BookInventory.tsx"
+      ],
+      "depends_on": [
+        "task-1"
+      ],
+      "requirements": [
+        "BOOK-REQ-001",
+        "BOOK-REQ-002",
+        "BOOK-REQ-003",
+        "BOOK-REQ-004"
+      ],
+      "priority": "required"
+    },
+    {
+      "id": "task-3",
+      "description": "Render BookInventory from the existing src/App.tsx, which src/main.tsx already mounts. Modify App.tsx rather than adding a second screen.",
+      "files": [
+        "src/App.tsx"
+      ],
+      "depends_on": [
+        "task-2"
+      ],
+      "requirements": [
+        "BOOK-REQ-001"
+      ],
+      "priority": "required"
+    },
+    {
+      "id": "task-4",
+      "description": "Add co-located tests at src/BookInventory.test.tsx using the configured Vitest globals, React Testing Library and user-event, covering title search, publication-year sorting, and the empty state.",
+      "files": [
+        "src/BookInventory.test.tsx"
+      ],
+      "depends_on": [
+        "task-2"
+      ],
+      "requirements": [
+        "BOOK-REQ-005"
+      ],
+      "priority": "required"
+    }
+  ]
+}

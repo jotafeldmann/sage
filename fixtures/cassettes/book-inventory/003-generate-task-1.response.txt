@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "path": "src/books.ts",
+      "contents": "export interface Book {\n  id: string;\n  title: string;\n  author: string;\n  publicationYear: number;\n  category: string;\n}\n\nexport const books: Book[] = [\n  {\n    id: \"1\",\n    title: \"The Pragmatic Programmer\",\n    author: \"Andrew Hunt\",\n    publicationYear: 1999,\n    category: \"Software\",\n  },\n  {\n    id: \"2\",\n    title: \"Refactoring\",\n    author: \"Martin Fowler\",\n    publicationYear: 2018,\n    category: \"Software\",\n  },\n  {\n    id: \"3\",\n    title: \"A Brief History of Time\",\n    author: \"Stephen Hawking\",\n    publicationYear: 1988,\n    category: \"Science\",\n  },\n];\n",
+      "rationale": "Local dataset, since the analysis confirms there is no data layer."
+    }
+  ],
+  "summary": "Added the Book type with title, author, publicationYear and category, plus three seed books."
+}

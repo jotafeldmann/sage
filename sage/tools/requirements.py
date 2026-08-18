@@ -7,7 +7,7 @@ identifiers each task implements, so those identifiers are the handle.
 A specification is split into two kinds of section:
 
 * **requirement sections**, whose heading carries an identifier such as
-  ``PRODUCT-REQ-001`` or ``CAR-OPT-002``;
+  ``AREA-REQ-001`` or ``AREA-OPT-002``;
 * **everything else** - purpose, constraints, acceptance criteria - which
   applies to the whole build.
 
@@ -26,7 +26,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# e.g. PRODUCT-REQ-001, CAR-OPT-002, BOOK-REQ-005, REQ-1
+# e.g. AREA-REQ-001, AREA-OPT-002, THING-REQ-005, REQ-1. Deliberately not
+# examples taken from the evaluation specifications: identifiers from a spec
+# SAGE has been run against should not appear in SAGE at all, not even in a
+# comment, and tests/test_generalization.py enforces that.
 _REQUIREMENT_ID = re.compile(r"\b([A-Z][A-Z0-9]*(?:-[A-Z][A-Z0-9]*)*-\d+)\b")
 
 # Markdown ATX headings, capturing depth so nesting can be respected.

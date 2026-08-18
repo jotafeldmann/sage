@@ -28,8 +28,10 @@ CASSETTES = REPO / "fixtures/cassettes"
 FIXTURE_APP = REPO / "fixtures/test-app"
 SPEC = REPO / "specs/examples/product-search.md"
 
-# Files the recorded runs generate. The fixture is committed without them.
-GENERATED = ("src/products.ts", "src/ProductSearch.tsx", "src/ProductSearch.test.tsx")
+# The fixture is committed with only these two files under src/; everything
+# else there is generated output. Listing what to *keep* rather than what to
+# delete means a new evaluation spec needs no change here.
+FIXTURE_BASELINE = ("App.tsx", "main.tsx")
 
 EXPECTED_FILES = [
     "src/App.tsx",
@@ -53,12 +55,13 @@ def app_copy(tmp_path: Path) -> Path:
     )
     (target / "node_modules").symlink_to(FIXTURE_APP / "node_modules")
 
-    for generated in GENERATED:
-        (target / generated).unlink(missing_ok=True)
+    for path in (target / "src").iterdir():
+        if path.name not in FIXTURE_BASELINE:
+            path.unlink()
     return target
 
 
-def _replay(cassette: str, app: Path) -> dict:
+def _replay(cassette: str, app: Path, spec: Path = SPEC) -> dict:
     settings = Settings(
         llm_mode="replay",
         api_base_url=None,
@@ -74,8 +77,8 @@ def _replay(cassette: str, app: Path) -> dict:
     deps.quiet = True
 
     initial: SageState = {
-        "spec": SPEC.read_text(encoding="utf-8"),
-        "spec_path": str(SPEC),
+        "spec": spec.read_text(encoding="utf-8"),
+        "spec_path": str(spec),
         "target_dir": str(app),
         "project": deps.project.to_dict(),
         "repository_context": {},
@@ -148,3 +151,55 @@ def test_the_generated_application_satisfies_the_specification(app_copy: Path) -
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "4 passed" in completed.stdout + completed.stderr
+
+
+def test_an_unseen_specification_runs_through_the_same_core(app_copy: Path) -> None:
+    """Milestone 6: a different domain must need no SAGE change.
+
+    The fixture, the graph, the prompts and the tools are identical to the
+    product-search runs. Only the specification differs.
+    """
+    spec = REPO / "specs/examples/book-inventory.md"
+
+    final = _replay("book-inventory", app_copy, spec=spec)
+
+    assert final["status"] == "succeeded"
+    assert final["validation_passed"] is True
+    assert final["repair_attempts"] == 0
+    assert sorted(set(final["changed_files"])) == [
+        "src/App.tsx",
+        "src/BookInventory.test.tsx",
+        "src/BookInventory.tsx",
+        "src/books.ts",
+    ]
+
+
+def test_the_unseen_specification_produces_a_distinct_plan(app_copy: Path) -> None:
+    product = _replay("product-search", app_copy)
+    books = _replay("book-inventory", app_copy)
+
+    product_files = {path for task in product["plan"] for path in task["files"]}
+    book_files = {path for task in books["plan"] for path in task["files"]}
+    book_requirements = {r for task in books["plan"] for r in task["requirements"]}
+
+    # Different files, and requirements traced to the specification that was
+    # actually given.
+    assert book_files != product_files
+    assert all(r.startswith("BOOK-") for r in book_requirements)
+    # The sorting requirement has no counterpart in the product-search spec.
+    assert "BOOK-REQ-003" in book_requirements
+
+
+def test_the_unseen_applications_tests_pass_outside_sage(app_copy: Path) -> None:
+    _replay("book-inventory", app_copy, spec=REPO / "specs/examples/book-inventory.md")
+
+    completed = subprocess.run(
+        ["npm", "run", "--silent", "test"],
+        cwd=app_copy,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "5 passed" in completed.stdout + completed.stderr
