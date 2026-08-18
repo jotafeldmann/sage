@@ -308,9 +308,13 @@ returned 0.
 |---|---|---|
 | `analyzer` | 1 | The deterministic probe summary + the contents of at most 6 ranked-important files, each capped at 2,500 chars |
 | `planner` | 1 | Specification + the probe summary + the analyzer's findings + the plan schema + one domain-neutral example |
-| `generator` | 1 per task | The current task only, its dependencies' **one-line summaries**, the analyzer's **conventions list**, and the contents of the files that task names |
+| `generator` | 1 per task | The current task only; **its own requirement sections** of the spec plus the globally applicable ones; its dependencies' one-line summaries **and their exported signatures**; the analyzer's conventions list; and the contents of the files that task names |
 | `validator` | 0 | Nothing. It is entirely deterministic. |
 | `repair` | 1 per attempt | The failing command, a truncated ANSI-stripped error excerpt, and only the files those errors actually name |
+
+Milestone 3 narrowed the specification and widened the dependency information in
+the same prompt. Those pull in opposite directions on purpose: a task should see
+*less* of what it does not implement and *more* of the API it must call.
 
 Only the `conventions` list travels from analysis into generation, not the whole
 `RepositoryContext`. The rest of the analysis is aimed at planning; repeating it
@@ -332,7 +336,21 @@ Each technique below names the code that implements it.
 #### Context window control
 
 No model call receives the repository. `sage/nodes/generator.py` sends one task,
-its dependencies' summaries, and only the files that task names.
+its dependencies' summaries and signatures, and only the files that task names.
+
+#### Requirement-scoped specifications
+
+`sage/tools/requirements.py` slices the specification by the requirement ids the
+planner recorded for each task. Globally applicable sections - purpose,
+constraints, shared type definitions - are always kept; only unrelated
+requirement sections are dropped. It fails open, returning the whole document
+when ids cannot be resolved.
+
+#### Signatures instead of files
+
+`sage/tools/signatures.py` extracts exported declarations textually, so a task
+consuming another task's module gets its API without its implementation. This
+replaced guessing, which is how the recorded Milestone 1 run first failed.
 
 #### State-to-prompt compression
 
@@ -368,53 +386,72 @@ run that is both allowlisted by SAGE and defined by the target project.
 Measured from the committed cassettes. Prompt sizes are exact; nothing here is
 estimated.
 
-**Milestone 2, clean run** (`fixtures/cassettes/product-search/`) — 6 calls:
+**Milestone 3, clean run** (`fixtures/cassettes/product-search/`) — 6 calls.
 
-| Call | Characters |
-|---|---:|
-| `001-analyze-repository` | 5,779 |
-| `002-planner` | 7,208 |
-| `003-generate-task-1` | 4,850 |
-| `004-generate-task-2` | 5,635 |
-| `005-generate-task-3` | 4,875 |
-| `006-generate-task-4` | 4,822 |
-| **Total** | **33,169** |
+The Milestone 2 column was measured by checking that tag out into a worktree and
+re-recording its prompts against the same pristine fixture, so this is a real
+before/after on identical input rather than a comparison against differently
+-recorded evidence:
 
-**Milestone 1, for comparison** — 7 calls, total 39,245 chars, largest 9,220.
+| Call | M2 | M3 | Change |
+|---|---:|---:|---:|
+| `001-analyze-repository` | 4,644 | 4,644 | — |
+| `002-planner` | 7,207 | 7,207 | — |
+| `003-generate-task-1` | 4,681 | 4,413 | −268 |
+| `004-generate-task-2` | 4,783 | 4,789 | **+6** |
+| `005-generate-task-3` | 4,875 | 4,634 | −241 |
+| `006-generate-task-4` | 4,822 | 4,638 | −184 |
+| **Total** | **31,012** | **30,325** | **−687** |
 
-Two real observations from that comparison, and one non-observation:
+Generation prompts specifically: **19,161 → 18,474 characters, −3.6%**. Analysis
+and planning are untouched by Milestone 3 and come out byte-identical, which is
+a useful check that the change landed where it was supposed to.
 
-1. **The planner prompt grew by ~2.2 KB** (5,016 → 7,208) — that is the analysis
-   being carried into it. This is the direct, intended cost of Milestone 2.
-2. **Per-generation prompts grew by ~0.7 KB each**, which is the conventions
-   list. Bounded and flat, since it does not accumulate per task.
-3. **Total fell** (39,245 → 33,169) only because this run needed no repair
-   attempts. As explained under *Evaluation Results*, that is not attributable
-   to the analyzer — both transcripts were hand-authored by the same author.
-   The repair cassette is the fairer shape comparison: 7 calls like Milestone 1,
-   and 44,489 characters against Milestone 1's 39,245. Repository analysis
-   makes a run *more* expensive per attempt. It has to pay for itself by
-   avoiding repairs, and that has not been measured.
+Two things in that table are worth more than the headline:
+
+- **`task-2` got 6 characters bigger.** It is the one task that consumes another
+  task's module, so it is the only one that gains a dependency-exports block —
+  and the requirement slicing almost exactly cancelled it out. This is the
+  honest shape of the trade: the saving is spent buying information the
+  generator previously had to guess at.
+- **A 3.6% reduction on this specification is not the interesting number.**
+  `specs/examples/product-search.md` is 1,276 characters with four requirements,
+  so there is very little to cut. Running the same slicing code over
+  `specs/car-inventory.md` — 3,306 characters, eight requirements, plus optional
+  sections — reduces a single-requirement slice to **59–64% of the document**,
+  measured across all eight of its requirements. The mechanism scales with
+  specification size; the fixture does not exercise it.
+
+**An earlier figure in this section was wrong.** A −8.5% reduction was recorded
+here at first. That compared Milestone 3 against Milestone 2 prompts recorded on
+a dirty fixture (see *Real defects*), which were inflated. Measured properly the
+figure is −3.6%.
 
 **The standing caveat on all of these numbers.** The evaluation target is a
-deliberately tiny fixture — about 3.5 KB of TypeScript plus 1.2 KB of config.
-Its entire contents would fit in a single prompt. These figures show that
-per-call context stays small and roughly flat, but they are **not** evidence
-that the context-management design saves anything, because there is nothing here
-to save. A meaningful measurement needs a repository large enough for the naive
-approach to hurt. That is Milestone 5's job, against the real boilerplate.
+deliberately tiny fixture — about 3.5 KB of TypeScript plus 1.2 KB of config,
+against a 1.3 KB specification. On a specification this small, slicing saves
+hundreds of characters; on `specs/car-inventory.md` the same code cuts a
+single-requirement slice to **59-64% of the document**, and on a large real
+specification the gap widens further. But that is arithmetic on the input, not a
+measured effect on model behaviour, cost, or quality. A meaningful measurement
+needs a repository and a specification large enough for the naive approach to
+hurt. That remains Milestone 5's job, against the real boilerplate.
 
-What the recorded prompts do verify by inspection:
+What the recorded prompts verify by inspection:
 
 - the analyzer received 4 files, not the repository, each fence-capped;
 - the planner received the probe summary plus the analysis, not any file;
-- `generate-task-2` received task-1's one-line summary, not `products.ts`;
+- `generate-task-2` received `src/products.ts`'s **exported signatures**
+  (`interface Product`, `const products: Product[]`) — not the file, and not
+  its non-exported internals;
 - `generate-task-3` received the existing `App.tsx` **contents**, because that
   task names the file it modifies — so the generator inspects before editing;
-- `repair-1` (in the repair cassette) received exactly one file, because that is
-  the only file the vitest output named.
+- each generation prompt carried only its own task's requirement sections plus
+  the globally applicable ones;
+- `repair-1` received exactly one file, because that is the only file the vitest
+  output named.
 
-Token and cost figures are **not** recorded, because both measured runs were
+Token and cost figures are **not** recorded, because every measured run was
 executed in `manual` mode, where no provider reports usage. `sage/llm/base.py`
 tracks token counts only when a provider actually returns them, and reports
 `None` otherwise rather than estimating. See *Average Cost Per Run*.
@@ -730,6 +767,40 @@ Until then, what is demonstrated is that the analysis *reaches* the planner and
 *visibly shapes* the plan - which is Milestone 2's actual definition of done -
 not that it improves outcomes.
 
+#### Milestone 3: controlled generation — PASSED
+
+Same specification, same two cassettes, re-recorded after requirement slicing
+and dependency signatures were added.
+
+```text
+fixtures/cassettes/product-search/         6 model calls, 0 repairs, PASSED
+fixtures/cassettes/product-search-repair/  7 model calls, 1 repair,  PASSED
+
+Final validation, both: typecheck PASSED, test PASSED, build PASSED
+```
+
+Milestone 3's definition of done, and where each part is verified:
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| Multiple dependency-aware tasks execute sequentially | Already held since M1 | `tests/test_graph.py` — 4 tasks, topological order, generator self-edge |
+| Filesystem scope is enforced | Already held since M1 | `tests/test_filesystem.py` — 17 tests |
+| Shell operations are constrained | Already held since M1 | `tests/test_shell.py` — 9 tests |
+| Task-specific context instead of full-repository prompts | **Closed in M3** | `tests/test_generator_context.py`, `test_requirements.py`, `test_signatures.py` |
+
+The first three were verified rather than rebuilt. The fourth was only partly
+true before: the generator prompt was headed "Specification requirements
+relevant to this task" and then pasted the entire specification underneath it.
+
+What changed, visible in `004-generate-task-2.prompt.md`:
+
+- the task now receives `src/products.ts`'s **exported signatures** —
+  `interface Product`, `const products: Product[]` — where before it received
+  only the sentence "Added the Product type and the three seed products";
+- non-exported internals and function bodies do not travel;
+- each generation prompt carries only its own requirement sections plus the
+  globally applicable ones.
+
 #### Evaluation 3: Official Car Inventory — NOT RUN
 
 Blocked on the boilerplate. Milestone 5.
@@ -779,6 +850,20 @@ single run on a small specification; none of it is a general claim.
   `002-planner.prompt.md` is how the analysis was confirmed to actually reach
   the planner, rather than trusting that the wiring was right.
 
+### Milestone 3 observations
+
+- **The plan already contained the handle for slicing.** `requirements` was
+  recorded per task in Milestone 1 for traceability, and turned out to be
+  exactly what was needed to scope the specification. Structured output paid off
+  somewhere it was not designed for.
+- **Failing open was the right default for slicing.** A specification SAGE
+  cannot parse, or requirement ids that resolve to nothing, sends the whole
+  document. Dropping a requirement silently would be a correctness bug; sending
+  a few paragraphs too many is only a cost.
+- **A textual scan was enough for signatures.** No TypeScript parser, no model
+  call. A missed export costs a little context quality and never correctness,
+  because deterministic validation is still the authority.
+
 ### Real defects the tests and recordings caught
 
 LangGraph injects its own `Runtime` object into any node parameter named
@@ -801,44 +886,63 @@ it, re-raised past the degradation path. Now covered by a test.
 The general lesson: a broad `except` that implements a fallback needs to say
 which failures it is a fallback *for*.
 
+**Milestone 3: the recording method was contaminating its own evidence.**
+Manual recording re-runs the entire graph on every pass, because each pass
+answers one more prompt than the last. From the second pass onward the analyzer
+was therefore sampling files SAGE had generated on the previous pass, and the
+committed Milestone 2 analyzer prompt shows it reading its own `ProductSearch.tsx`.
+The recorded figures were correspondingly too high.
+
+Found by noticing that the analyzer prompt shrank between Milestone 2 and
+Milestone 3 despite Milestone 3 not touching the analyzer — a change that had no
+business happening. `scripts/reset-fixture.sh` now makes the reset explicit,
+both cassettes are re-recorded from a pristine fixture, and the affected numbers
+in *Measurements* are corrected.
+
+The general lesson: when a measurement moves somewhere the change could not have
+reached, the measurement is what is broken.
+
 ## What I Would Improve
 
 Now grounded in what Milestone 1 actually surfaced, rather than a wish list.
 
-**Still the highest-value change, and now the clearest one:**
+**Done in Milestone 3** (kept here because the reasoning is the record):
+dependency signatures, and requirement-scoped specifications. A task can now see
+the API of the module it consumes instead of guessing it.
 
-1. **Pass dependency signatures, not just summaries.** Milestone 1's first
-   failure happened because the test task knew what the component *did* but not
-   what it *looked like*. Milestone 2 narrowed the gap - the generator now gets
-   the conventions list - but did not close it: a task still cannot see the
-   exported signatures of the module it depends on. The repair cassette
-   reproduces exactly this failure, which makes it the obvious Milestone 3 work.
-2. **Let the generator see sibling files it is about to integrate with.**
-   Related to the above, and the same fix.
+**Still open, indicated by the implementation:**
+
+1. **A component's own rendered surface is still invisible to its test.** The
+   repair cassette's failure is that the test task cannot know the component
+   renders a `<label>` rather than a placeholder. Exported signatures do not
+   capture that, because it is not in the module's type surface. Options: give
+   test tasks the implementation file of the component under test, or run tests
+   first and let repair handle it - which is what happens today, and arguably
+   correctly.
 
 **Indicated by the implementation:**
 
-3. **Failure classification before repair.** A typecheck error, a failed
+2. **Failure classification before repair.** A typecheck error, a failed
    assertion, and a missing module deserve different repair prompts. Currently
    all three get the same one.
-4. **Re-validate incrementally.** After a repair touching only test files, the
+3. **Re-validate incrementally.** After a repair touching only test files, the
    full build does not need to re-run.
-5. **Token and cost accounting.** The plumbing exists (`Usage`), but no run has
+4. **Token and cost accounting.** The plumbing exists (`Usage`), but no run has
    yet gone through a provider that reports usage.
-6. **A plan review gate.** Not yet justified - both recorded plans were sound.
+5. **A plan review gate.** Not yet justified - both recorded plans were sound.
    Worth revisiting only if a measured run produces a bad plan.
-7. **Cache the analysis per target directory.** Every run re-analyzes a project
+6. **Cache the analysis per target directory.** Every run re-analyzes a project
    that has not changed. A digest of the probe output would make the analyzer
    call skippable across runs. Not done, because with one small fixture it would
    optimise something that has never been observed to hurt.
-8. **Measure whether analysis actually helps.** The honest gap called out under
+7. **Measure whether analysis and slicing actually help.** The honest gap called out under
    *Evaluation Results*: run the same unseen spec with the analyzer on and off,
    via `--llm api`, and compare repair counts. Until then Milestone 2 is
    justified by design reasoning, not evidence.
 
 **Carried forward as risk:**
 
-7. **The boilerplate assumption is untested.** "Point `--target-dir` at the real
+8. **The boilerplate assumption is untested.** "Point `--target-dir` at the real
    repository and nothing changes" is a design intent, not a verified fact.
 
 ## Average Cost Per Run
@@ -852,19 +956,26 @@ available in this environment. In that mode no provider reports usage, so
 
 What *was* measured on that run:
 
-| Metric | M1 run | M2 clean | M2 with repair |
+All figures below are from cassettes recorded against a pristine fixture.
+
+| Metric | M2 clean | M3 clean | M3 with repair |
 |---|---:|---:|---:|
-| Model calls | 7 | 6 | 7 |
-| Total prompt characters | 39,245 | 33,169 | 44,489 |
-| Largest single prompt | 9,220 | 7,208 | 9,310 |
-| Repair attempts | 2 | 0 | 1 |
+| Model calls | 6 | 6 | 7 |
+| Total prompt characters | 31,012 | 30,325 | 39,635 |
+| Generation prompts only | 19,161 | 18,474 | 18,474 |
+| Largest single prompt | 7,207 | 7,207 | 9,310 |
+| Repair attempts | 0 | 0 | 1 |
 | Final validation | passed | passed | passed |
 | Input tokens | not reported | not reported | not reported |
 | Output tokens | not reported | not reported | not reported |
 | Cost | not measured | not measured | not measured |
 
-Characters are not tokens, and three hand-authored runs on one small
-specification are not an average. These stay as-is until real `api`-mode runs
+Milestone 1's run is not in this table: it predates the analyzer, so its call
+sequence is not comparable, and its recording was never made against a pristine
+fixture.
+
+Characters are not tokens, and hand-authored runs on one small specification are
+not an average. These stay as-is until real `api`-mode runs
 exist.
 
 To produce real figures: set `SAGE_API_KEY`, `SAGE_API_BASE_URL` and
@@ -913,13 +1024,15 @@ Actual structure after Milestone 1:
 │   ├── graph.py                  the workflow and its routing
 │   ├── nodes/{analyzer,planner,generator,validator,repair}.py
 │   ├── tools/{filesystem,shell,project}.py    the security boundary
+│   ├── tools/{requirements,signatures}.py     context scoping
 │   ├── llm/{base,transcript,api,manual,replay,structured}.py
 │   ├── prompts/{analyzer,planner,generator,repair,_shared}.md
 │   └── schemas/{plan,repository,changes,validation}.py
-├── tests/                        100 tests
+├── tests/                        138 tests
 ├── fixtures/                     NOT part of the deliverable
 │   ├── test-app/                 throwaway React/TS harness, committed pristine
 │   └── cassettes/                two recorded runs: clean, and with repair
+├── scripts/reset-fixture.sh      restores the fixture before recording
 └── generated-app/                submission output; empty until the
                                   official boilerplate is available
 ```
