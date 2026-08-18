@@ -19,7 +19,9 @@ from pathlib import Path
 PROMPT_SUFFIX = ".prompt.md"
 RESPONSE_SUFFIX = ".response.txt"
 
-_UNSAFE = re.compile(r"[^a-zA-Z0-9._-]+")
+# Tags can be derived from model-supplied task ids, so anything that could
+# act as a path separator or a traversal segment is collapsed away.
+_UNSAFE = re.compile(r"[^a-zA-Z0-9_-]+")
 
 
 def new_run_id() -> str:

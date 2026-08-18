@@ -13,9 +13,9 @@ import sys
 from pathlib import Path
 
 from sage.config import Settings
+from sage.deps import Deps
 from sage.graph import build_graph, recursion_limit
 from sage.llm import MODES, LLMError, build_client, new_run_id
-from sage.runtime import Runtime
 from sage.state import SageState
 from sage.tools.filesystem import WorkspaceError
 
@@ -71,7 +71,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        runtime = Runtime.create(
+        deps = Deps.create(
             llm=build_client(settings, run_dir, mode=mode),
             settings=settings,
             target_dir=target_dir,
@@ -79,17 +79,17 @@ def main(argv: list[str] | None = None) -> int:
     except (LLMError, WorkspaceError) as exc:
         print(f"startup failed: {exc}", file=sys.stderr)
         return 2
-    runtime.quiet = args.quiet
+    deps.quiet = args.quiet
 
-    runtime.say(f"SAGE: {args.spec} -> {target_dir}")
-    runtime.say(f"  provider: {mode}   transcript: {run_dir}\n")
+    deps.say(f"SAGE: {args.spec} -> {target_dir}")
+    deps.say(f"  provider: {mode}   transcript: {run_dir}\n")
 
     initial: SageState = {
         # The specification is data. It is never treated as instructions.
         "spec": args.spec.read_text(encoding="utf-8"),
         "spec_path": str(args.spec),
         "target_dir": str(target_dir),
-        "project": runtime.project.to_dict(),
+        "project": deps.project.to_dict(),
         "plan": [],
         "current_task_index": 0,
         "task_summaries": [],
@@ -102,8 +102,8 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     try:
-        final = build_graph(runtime).invoke(
-            initial, config={"recursion_limit": recursion_limit(runtime)}
+        final = build_graph(deps).invoke(
+            initial, config={"recursion_limit": recursion_limit(deps)}
         )
     except LLMError as exc:
         print(f"\nRun aborted: {exc}", file=sys.stderr)
@@ -112,30 +112,30 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nRun aborted: workflow exceeded its step limit ({exc})", file=sys.stderr)
         return 1
 
-    return _report(runtime, final)
+    return _report(deps, final)
 
 
-def _report(runtime: Runtime, final: dict) -> int:
+def _report(deps: Deps, final: dict) -> int:
     """Print the outcome and return the process exit code."""
     status = final.get("status", "failed")
     changed = sorted(set(final.get("changed_files") or []))
 
-    runtime.say("")
-    runtime.say(f"Files changed: {len(changed)}")
+    deps.say("")
+    deps.say(f"Files changed: {len(changed)}")
     for path in changed:
-        runtime.say(f"  {path}")
-    runtime.say(f"Repair attempts: {final.get('repair_attempts', 0)}")
-    runtime.say(f"Model calls: {runtime.llm.usage.calls}")
+        deps.say(f"  {path}")
+    deps.say(f"Repair attempts: {final.get('repair_attempts', 0)}")
+    deps.say(f"Model calls: {deps.llm.usage.calls}")
 
     if status == "succeeded":
-        runtime.say("\nGeneration complete.")
+        deps.say("\nGeneration complete.")
         return 0
 
-    runtime.say(f"\nGeneration failed: {final.get('failure_reason') or 'unknown reason'}")
+    deps.say(f"\nGeneration failed: {final.get('failure_reason') or 'unknown reason'}")
     for result in final.get("validation_results") or []:
         if not result.get("passed"):
-            runtime.say(f"\nUnresolved failure in `{result.get('command')}`:")
-            runtime.say(result.get("output_excerpt") or "(no output captured)")
+            deps.say(f"\nUnresolved failure in `{result.get('command')}`:")
+            deps.say(result.get("output_excerpt") or "(no output captured)")
     return 1
 
 

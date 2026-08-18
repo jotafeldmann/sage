@@ -11,16 +11,16 @@ succeeded or failed, so the graph always ends in an explicit state.
 from __future__ import annotations
 
 from sage.config import MAX_OUTPUT_EXCERPT_CHARS, VALIDATION_SCRIPT_PREFERENCE
-from sage.runtime import Runtime
+from sage.deps import Deps
 from sage.schemas.validation import ValidationResult, extract_mentioned_files
 from sage.state import SageState
 
 
-def validator_node(state: SageState, runtime: Runtime) -> dict:
+def validator_node(state: SageState, deps: Deps) -> dict:
     """Run available validation commands and set the run's terminal status."""
-    runtime.refresh_project()
-    runner = runtime.script_runner()
-    known_files = set(runtime.fs.list_files())
+    deps.refresh_project()
+    runner = deps.script_runner()
+    known_files = set(deps.fs.list_files())
 
     results: list[ValidationResult] = []
     passed = True
@@ -40,38 +40,38 @@ def validator_node(state: SageState, runtime: Runtime) -> dict:
             )
             continue
 
-        runtime.say(f"Running {script}...")
+        deps.say(f"Running {script}...")
         outcome = runner.run_script(script)
         result = _normalize(outcome, known_files)
         results.append(result)
-        runtime.say("PASSED" if result.passed else f"FAILED (exit {result.exit_code})")
+        deps.say("PASSED" if result.passed else f"FAILED (exit {result.exit_code})")
 
         if not result.passed:
             passed = False
             break  # first failure is the one worth repairing
 
     if not any(not r.skipped for r in results):
-        runtime.say("No validation scripts available in the target project.")
+        deps.say("No validation scripts available in the target project.")
 
     return {
         "validation_results": [r.model_dump() for r in results],
         "validation_passed": passed,
-        **_terminal_status(state, runtime, passed),
+        **_terminal_status(state, deps, passed),
     }
 
 
-def _terminal_status(state: SageState, runtime: Runtime, passed: bool) -> dict:
+def _terminal_status(state: SageState, deps: Deps, passed: bool) -> dict:
     """Succeed, fail, or stay running with repair budget left."""
     if passed:
         return {"status": "succeeded", "failure_reason": None}
 
     attempts = state.get("repair_attempts", 0)
-    if attempts >= runtime.settings.max_repair_attempts:
+    if attempts >= deps.settings.max_repair_attempts:
         return {
             "status": "failed",
             "failure_reason": (
                 f"validation still failing after {attempts} repair attempt(s) "
-                f"(limit {runtime.settings.max_repair_attempts})"
+                f"(limit {deps.settings.max_repair_attempts})"
             ),
         }
     return {"status": "running", "failure_reason": None}

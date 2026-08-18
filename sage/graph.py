@@ -29,8 +29,8 @@ from functools import partial
 
 from langgraph.graph import END, START, StateGraph
 
+from sage.deps import Deps
 from sage.nodes import generator_node, planner_node, repair_node, validator_node
-from sage.runtime import Runtime
 from sage.state import SageState
 
 # Headroom over the worst case: max_tasks generator steps, plus validator and
@@ -54,14 +54,14 @@ def route_after_validator(state: SageState) -> str:
     return "repair"
 
 
-def build_graph(runtime: Runtime):
-    """Compile the workflow with `runtime` bound to every node."""
+def build_graph(deps: Deps):
+    """Compile the workflow with `deps` bound to every node."""
     builder = StateGraph(SageState)
 
-    builder.add_node("planner", partial(planner_node, runtime=runtime))
-    builder.add_node("generator", partial(generator_node, runtime=runtime))
-    builder.add_node("validator", partial(validator_node, runtime=runtime))
-    builder.add_node("repair", partial(repair_node, runtime=runtime))
+    builder.add_node("planner", partial(planner_node, deps=deps))
+    builder.add_node("generator", partial(generator_node, deps=deps))
+    builder.add_node("validator", partial(validator_node, deps=deps))
+    builder.add_node("repair", partial(repair_node, deps=deps))
 
     builder.add_edge(START, "planner")
     builder.add_edge("planner", "generator")
@@ -80,8 +80,8 @@ def build_graph(runtime: Runtime):
     return builder.compile()
 
 
-def recursion_limit(runtime: Runtime) -> int:
+def recursion_limit(deps: Deps) -> int:
     """A ceiling derived from the configured budgets, not a magic number."""
-    generator_steps = runtime.settings.max_tasks
-    repair_steps = runtime.settings.max_repair_attempts * 2  # repair + revalidate
+    generator_steps = deps.settings.max_tasks
+    repair_steps = deps.settings.max_repair_attempts * 2  # repair + revalidate
     return generator_steps + repair_steps + RECURSION_LIMIT_HEADROOM

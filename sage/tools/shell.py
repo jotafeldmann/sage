@@ -75,7 +75,9 @@ class ScriptRunner:
             raise ShellError(f"script is not on the allowlist: {script!r}")
         if script not in self.available_scripts:
             raise ShellError(f"script is not defined by the target project: {script!r}")
-        return self._execute(["npm", "run", "--silent", script])
+        # `--silent` keeps npm's own banner out of the captured output; the
+        # reported command stays the logical one so results are comparable.
+        return self._execute(["npm", "run", "--silent", script], display=f"npm run {script}")
 
     def install(self, mode: str = "ci") -> CommandResult:
         """Install target-project dependencies."""
@@ -84,8 +86,8 @@ class ScriptRunner:
             raise ShellError(f"install mode is not permitted: {mode!r}")
         return self._execute(argv)
 
-    def _execute(self, argv: list[str]) -> CommandResult:
-        printable = " ".join(argv)
+    def _execute(self, argv: list[str], display: str | None = None) -> CommandResult:
+        printable = display or " ".join(argv)
         try:
             completed = subprocess.run(  # noqa: S603 - argv is allowlisted, shell=False
                 argv,

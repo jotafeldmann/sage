@@ -10,9 +10,9 @@ and only the files those errors actually name.
 from __future__ import annotations
 
 from sage import prompts
+from sage.deps import Deps
 from sage.llm.structured import complete_structured
 from sage.nodes.generator import CHANGES_SCHEMA, apply_changes
-from sage.runtime import Runtime
 from sage.schemas.changes import GenerationResult
 from sage.state import SageState
 
@@ -20,31 +20,31 @@ from sage.state import SageState
 MAX_REPAIR_FILES = 6
 
 
-def repair_node(state: SageState, runtime: Runtime) -> dict:
+def repair_node(state: SageState, deps: Deps) -> dict:
     """Attempt the smallest correction for the current failure."""
     attempt = state.get("repair_attempts", 0) + 1
     failure = _first_failure(state)
 
-    runtime.say(f"\nRepairing (attempt {attempt}/{runtime.settings.max_repair_attempts})...")
+    deps.say(f"\nRepairing (attempt {attempt}/{deps.settings.max_repair_attempts})...")
 
     prompt = prompts.render(
         "repair",
-        project_summary=runtime.project.to_prompt_summary(),
+        project_summary=deps.project.to_prompt_summary(),
         spec=state["spec"],
         failed_command=failure.get("command", "unknown"),
         exit_code=str(failure.get("exit_code", "unknown")),
         error_output=failure.get("output_excerpt") or "(no output captured)",
         completed_work=_completed_work(state),
-        existing_files=_relevant_files(runtime, state, failure),
+        existing_files=_relevant_files(deps, state, failure),
         attempt=str(attempt),
-        max_attempts=str(runtime.settings.max_repair_attempts),
+        max_attempts=str(deps.settings.max_repair_attempts),
         schema=CHANGES_SCHEMA,
     )
-    result = complete_structured(runtime.llm, prompt, GenerationResult, tag=f"repair-{attempt}")
+    result = complete_structured(deps.llm, prompt, GenerationResult, tag=f"repair-{attempt}")
 
-    written = apply_changes(runtime, result)
-    runtime.say(f"{len(written)} file(s) updated.\n")
-    runtime.refresh_project()
+    written = apply_changes(deps, result)
+    deps.say(f"{len(written)} file(s) updated.\n")
+    deps.refresh_project()
 
     return {
         "repair_attempts": attempt,
@@ -67,7 +67,7 @@ def _first_failure(state: SageState) -> dict:
     return {}
 
 
-def _relevant_files(runtime: Runtime, state: SageState, failure: dict) -> str:
+def _relevant_files(deps: Deps, state: SageState, failure: dict) -> str:
     """Files the errors named, falling back to what the run actually changed."""
     candidates = list(failure.get("files_mentioned") or [])
     if not candidates:
@@ -75,7 +75,7 @@ def _relevant_files(runtime: Runtime, state: SageState, failure: dict) -> str:
             if path not in candidates:
                 candidates.append(path)
 
-    files = runtime.fs.read_many(candidates[:MAX_REPAIR_FILES])
+    files = deps.fs.read_many(candidates[:MAX_REPAIR_FILES])
     if not files:
         return "No related source files could be identified from the failure output."
     return "\n\n".join(f"### {path}\n```\n{contents}\n```" for path, contents in files.items())

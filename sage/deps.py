@@ -20,7 +20,7 @@ from sage.tools.shell import ScriptRunner
 
 
 @dataclass
-class Runtime:
+class Deps:
     """Tools and configuration shared by every node in one run."""
 
     llm: LLMClient
@@ -30,7 +30,7 @@ class Runtime:
     quiet: bool = False
 
     @classmethod
-    def create(cls, llm: LLMClient, settings: Settings, target_dir: Path) -> Runtime:
+    def create(cls, llm: LLMClient, settings: Settings, target_dir: Path) -> Deps:
         fs = WorkspaceFS(target_dir)
         return cls(llm=llm, settings=settings, fs=fs, project=probe_project(fs))
 

@@ -7,8 +7,8 @@ schema-validated before anything downstream acts on it.
 from __future__ import annotations
 
 from sage import prompts
+from sage.deps import Deps
 from sage.llm.structured import complete_structured
-from sage.runtime import Runtime
 from sage.schemas.plan import Plan
 from sage.state import SageState
 
@@ -26,30 +26,30 @@ PLAN_SCHEMA = """{
 }"""
 
 
-def planner_node(state: SageState, runtime: Runtime) -> dict:
+def planner_node(state: SageState, deps: Deps) -> dict:
     """Produce a validated plan and reset the task cursor."""
-    runtime.say("Planning implementation...")
+    deps.say("Planning implementation...")
 
     prompt = prompts.render(
         "planner",
-        project_summary=runtime.project.to_prompt_summary(),
+        project_summary=deps.project.to_prompt_summary(),
         spec=state["spec"],
-        max_tasks=str(runtime.settings.max_tasks),
+        max_tasks=str(deps.settings.max_tasks),
         schema=PLAN_SCHEMA,
     )
-    plan = complete_structured(runtime.llm, prompt, Plan, tag="planner")
+    plan = complete_structured(deps.llm, prompt, Plan, tag="planner")
 
     tasks = plan.in_dependency_order()
-    if len(tasks) > runtime.settings.max_tasks:
+    if len(tasks) > deps.settings.max_tasks:
         # A cap on plan length is a control-plane limit: an untrusted
         # specification must not be able to lengthen the run indefinitely.
-        runtime.say(
-            f"  plan truncated from {len(tasks)} to {runtime.settings.max_tasks} tasks "
+        deps.say(
+            f"  plan truncated from {len(tasks)} to {deps.settings.max_tasks} tasks "
             "(SAGE_MAX_TASKS)"
         )
-        tasks = tasks[: runtime.settings.max_tasks]
+        tasks = tasks[: deps.settings.max_tasks]
 
-    runtime.say(f"{len(tasks)} tasks created.\n")
+    deps.say(f"{len(tasks)} tasks created.\n")
     return {
         "plan": [task.model_dump() for task in tasks],
         "current_task_index": 0,
