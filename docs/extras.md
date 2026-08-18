@@ -881,15 +881,59 @@ this class of failure usually means". Whether that trade improves repair success
 is **not measured** — the recorded run repairs successfully both before and
 after, and one hand-authored run cannot separate the two.
 
+#### Milestone 6: generalization — PASSED
+
+`specs/examples/book-inventory.md`, a domain SAGE had never been run against,
+carrying a sorting requirement that `product-search.md` does not have.
+
+```text
+Cassette:            fixtures/cassettes/book-inventory/
+Plan:                4 dependency-aware tasks
+Model calls:         6
+Repair attempts:     0
+Generated:           src/books.ts, src/BookInventory.tsx, src/App.tsx,
+                     src/BookInventory.test.tsx
+Final validation:    typecheck PASSED, test PASSED (5 tests), build PASSED
+```
+
+**The claim is verified, not asserted.** A sha256 over every file under `sage/`
+was taken before the run and after it:
+
+```text
+before: 9f2e97a2fdb3dc39d441cadfed00d992f93a0fc7838f821cdb31717fc59493f9
+after:  9f2e97a2fdb3dc39d441cadfed00d992f93a0fc7838f821cdb31717fc59493f9
+```
+
+No SAGE code and no prompt changed. `tests/test_generalization.py` additionally
+asserts that no requirement identifier from any specification in `specs/`
+appears anywhere in SAGE, and that more than one domain has actually been
+recorded — so the claim cannot quietly rot.
+
+Two mechanisms built for earlier milestones carried over untouched, which is the
+substance of the result rather than the run itself:
+
+- **Requirement slicing recognised `BOOK-REQ-*` with no new pattern**, because
+  the identifier format is matched structurally rather than enumerated. A
+  single-requirement slice of the book spec is 64% of the document.
+- **Signature extraction carried `interface Book` and `const books: Book[]`**
+  into the component task, exactly as it had carried the product type.
+
+The analyzer prompt for this run is **byte-identical** to the product-search
+one, because repository analysis describes the project and not the
+specification. That is a design property worth naming: analysis is cacheable
+per target directory precisely because it does not depend on the spec.
+
 #### Evaluation 3: Official Car Inventory — NOT RUN
 
-Blocked on the boilerplate. Milestone 5.
+Blocked, and this is the one milestone that cannot be unblocked by any amount of
+work here. `specs/car-inventory.md` requires Apollo Client, an MSW-backed
+GraphQL mock, a `GetCars` query, a `Car` type and five seed cars — all of them
+provided by the boilerplate `docs/project.pdf` lists as "provided separately",
+which is not in this workspace. Generating against a reconstruction would prove
+nothing about the real repository.
 
-#### Evaluation 4: Generalization — NOT RUN as a full generation
-
-The *negative* half is enforced now: `tests/test_generalization.py` asserts that
-no evaluation-spec vocabulary and no unseen-stack name appears in SAGE core. The
-*positive* half - actually generating the book inventory - is Milestone 6.
+Everything the milestone needs on SAGE's side is in place and demonstrated on
+two other specifications. What is missing is the input.
 
 ## What Worked Well
 
@@ -959,6 +1003,21 @@ single run on a small specification; none of it is a general claim.
   header gives repair the case name and the reason, which is what a human would
   actually read.
 
+### Milestone 6 observations
+
+- **Structural matching generalized; enumeration would not have.** The
+  requirement-id regex matches a shape (`WORD-WORD-123`), so `BOOK-REQ-003`
+  worked without SAGE having heard of books. Every place SAGE was tempted to
+  enumerate — frameworks, test runners, requirement prefixes — and instead
+  recognised a pattern or reported `unknown`, is a place this milestone passed
+  for free.
+- **The failures were all in the harness, never in SAGE.** Both defects found
+  were the same mistake in scaffolding written while only one evaluation spec
+  existed. The agent generalized; the test rig did not.
+- **Repository analysis is specification-independent, and that is worth
+  keeping.** The analyzer prompt is byte-identical across the two domains. It
+  is what makes caching analysis per target directory a safe optimisation.
+
 ### Real defects the tests and recordings caught
 
 LangGraph injects its own `Runtime` object into any node parameter named
@@ -997,6 +1056,18 @@ in *Measurements* are corrected.
 The general lesson: when a measurement moves somewhere the change could not have
 reached, the measurement is what is broken.
 
+**Milestone 6: the harness was written for one specification.**
+`scripts/reset-fixture.sh` deleted a hardcoded list of product-search files, so
+running the book specification left `BookInventory.tsx` behind and the
+re-recorded analyzer prompt sampled SAGE's own generated component.
+`tests/test_end_to_end.py` had the identical bug. Both now list what to *keep* —
+the two files the fixture actually commits — rather than what to delete.
+
+Worth recording because of where it happened. SAGE generalized to a new domain
+without a single change; the scaffolding around it did not. Code written while
+only one example exists tends to encode that example, and the agent's own
+generalization tests do not cover the harness.
+
 ## What I Would Improve
 
 Now grounded in what Milestone 1 actually surfaced, rather than a wish list.
@@ -1025,9 +1096,12 @@ requirement-scoped specifications for repair too.
 4. **A plan review gate.** Not yet justified - both recorded plans were sound.
    Worth revisiting only if a measured run produces a bad plan.
 5. **Cache the analysis per target directory.** Every run re-analyzes a project
-   that has not changed. A digest of the probe output would make the analyzer
-   call skippable across runs. Not done, because with one small fixture it would
-   optimise something that has never been observed to hurt.
+   that has not changed, and Milestone 6 showed the analyzer prompt is
+   byte-identical across two different specifications — so the result is
+   genuinely reusable, not merely similar. A digest of the probe output would
+   make the call skippable. Still not done, because with one small fixture it
+   would optimise something that has never been observed to hurt, but the
+   evidence that it is *safe* now exists.
 6. **Measure whether analysis, slicing and guidance actually help.** The honest gap called out under
    *Evaluation Results*: run the same unseen spec with the analyzer on and off,
    via `--llm api`, and compare repair counts. Until then Milestone 2 is
@@ -1051,17 +1125,22 @@ What *was* measured on that run:
 
 All figures below are from cassettes recorded against a pristine fixture.
 
-| Metric | M2 clean | M3 clean | M4 clean | M4 with repair |
-|---|---:|---:|---:|---:|
-| Model calls | 6 | 6 | 6 | 7 |
-| Total prompt characters | 31,012 | 30,325 | 30,325 | 40,060 |
-| Generation prompts only | 19,161 | 18,474 | 18,474 | 18,474 |
-| Largest single prompt | 7,207 | 7,207 | 7,207 | 9,735 |
-| Repair attempts | 0 | 0 | 0 | 1 |
-| Final validation | passed | passed | passed | passed |
-| Input tokens | not reported | not reported | not reported | not reported |
-| Output tokens | not reported | not reported | not reported | not reported |
-| Cost | not measured | not measured | not measured | not measured |
+| Metric | product-search | with repair | book-inventory |
+|---|---:|---:|---:|
+| Model calls | 6 | 7 | 6 |
+| Total prompt characters | 30,325 | 40,060 | 31,091 |
+| Largest single prompt | 7,207 | 9,735 | 7,306 |
+| Repair attempts | 0 | 1 | 0 |
+| Tasks planned | 4 | 4 | 4 |
+| Tests generated | 4 | 3 | 5 |
+| Final validation | passed | passed | passed |
+| Input tokens | not reported | not reported | not reported |
+| Output tokens | not reported | not reported | not reported |
+| Cost | not measured | not measured | not measured |
+
+The two specifications cost within 3% of each other, which is what you would
+expect: they are similar in size and both produce four tasks. Nothing here
+suggests SAGE is tuned to one of them.
 
 Milestone 1's run is not in this table: it predates the analyzer, so its call
 sequence is not comparable, and its recording was never made against a pristine
@@ -1122,10 +1201,11 @@ Actual structure after Milestone 1:
 │   ├── llm/{base,transcript,api,manual,replay,structured}.py
 │   ├── prompts/{analyzer,planner,generator,repair,_shared}.md
 │   └── schemas/{plan,repository,changes,validation}.py
-├── tests/                        174 tests
+├── tests/                        179 tests
 ├── fixtures/                     NOT part of the deliverable
 │   ├── test-app/                 throwaway React/TS harness, committed pristine
-│   └── cassettes/                two recorded runs: clean, and with repair
+│   └── cassettes/                three recorded runs: clean, repair, and
+│                                 an unseen domain
 ├── scripts/reset-fixture.sh      restores the fixture before recording
 └── generated-app/                submission output; empty until the
                                   official boilerplate is available
