@@ -11,6 +11,9 @@ import re
 
 from pydantic import BaseModel, Field
 
+# Terminal colour codes from test runners are pure noise in a prompt.
+_ANSI = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
 # Matches leading file paths in tsc / vitest / eslint style diagnostics, e.g.
 #   src/App.tsx(12,5): error TS2322: ...
 #   src/App.tsx:12:5 - error ...
@@ -41,3 +44,8 @@ def extract_mentioned_files(output: str, known_files: set[str]) -> list[str]:
         if candidate in known_files and candidate not in found:
             found.append(candidate)
     return found
+
+
+def strip_ansi(output: str) -> str:
+    """Remove terminal colour codes so they do not eat the excerpt budget."""
+    return _ANSI.sub("", output)

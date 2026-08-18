@@ -1,0 +1,10 @@
+{
+  "changes": [
+    {
+      "path": "src/ProductSearch.test.tsx",
+      "contents": "import { render, screen } from \"@testing-library/react\";\nimport userEvent from \"@testing-library/user-event\";\n\nimport { ProductSearch } from \"./ProductSearch\";\n\ndescribe(\"ProductSearch\", () => {\n  it(\"shows every product initially\", () => {\n    render(<ProductSearch />);\n\n    expect(screen.getByText(\"Keyboard\")).toBeInTheDocument();\n    expect(screen.getByText(\"Monitor\")).toBeInTheDocument();\n    expect(screen.getByText(\"Mouse\")).toBeInTheDocument();\n  });\n\n  it(\"narrows the visible products as you search, ignoring case\", async () => {\n    render(<ProductSearch />);\n\n    await userEvent.type(screen.getByLabelText(\"Search products\"), \"mo\");\n\n    expect(screen.getByText(\"Monitor\")).toBeInTheDocument();\n    expect(screen.queryByText(\"Keyboard\")).not.toBeInTheDocument();\n    expect(screen.queryByText(\"Mouse\")).not.toBeInTheDocument();\n  });\n\n  it(\"shows the empty state when nothing matches\", async () => {\n    render(<ProductSearch />);\n\n    await userEvent.type(screen.getByLabelText(\"Search products\"), \"zzz\");\n\n    expect(screen.getByText(\"No products found\")).toBeInTheDocument();\n  });\n});\n",
+      "rationale": "The rendered DOM in the failure output shows a <label>, not a placeholder."
+    }
+  ],
+  "summary": "Queried the search input by its label instead of a non-existent placeholder."
+}

@@ -67,3 +67,11 @@ def test_error_output_only_yields_files_that_exist() -> None:
     found = extract_mentioned_files(output, known_files={"src/App.tsx", "src/other.tsx"})
 
     assert found == ["src/App.tsx"]
+
+
+def test_ansi_colour_codes_are_stripped_from_excerpts() -> None:
+    from sage.schemas.validation import strip_ansi
+
+    coloured = "\x1b[36m<div>\x1b[39m\n\x1b[31mFAILED\x1b[0m src/App.test.tsx"
+
+    assert strip_ansi(coloured) == "<div>\nFAILED src/App.test.tsx"

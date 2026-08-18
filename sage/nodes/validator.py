@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from sage.config import MAX_OUTPUT_EXCERPT_CHARS, VALIDATION_SCRIPT_PREFERENCE
 from sage.deps import Deps
-from sage.schemas.validation import ValidationResult, extract_mentioned_files
+from sage.schemas.validation import ValidationResult, extract_mentioned_files, strip_ansi
 from sage.state import SageState
 
 
@@ -79,7 +79,7 @@ def _terminal_status(state: SageState, deps: Deps, passed: bool) -> dict:
 
 def _normalize(outcome, known_files: set[str]) -> ValidationResult:
     """Reduce a raw command result to the compact shape repair consumes."""
-    output = outcome.combined_output
+    output = strip_ansi(outcome.combined_output)
     return ValidationResult(
         command=outcome.command,
         exit_code=outcome.exit_code,
